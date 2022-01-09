@@ -9,8 +9,7 @@ import credentials
 
 client=Client(credentials.getBinanceKey(), credentials.getBinanceSecretKey())
 
-START_DATE = 'Jan 2020'
-END_DATE = 'Nov 2021'
+TIME_INTERVAL = '1 year ago UTC'
 CURRENCY_PAIR = 'BTCBUSD'
 CANDLE_INTERVAL = Client.KLINE_INTERVAL_1HOUR
 
@@ -44,25 +43,23 @@ class DataColumns(Enum):
 
 def getData():
     if not os.path.isfile('./historical_data.csv'):
-        historical_data = client.get_historical_klines(CURRENCY_PAIR, CANDLE_INTERVAL, '1 ' + START_DATE, '30' + END_DATE)
+        historical_data = client.get_historical_klines(CURRENCY_PAIR, CANDLE_INTERVAL, TIME_INTERVAL)
         np_historical_data = np.array(historical_data)
         np_historical_data = np.delete(np_historical_data, range(7, 12), 1)
         df = pd.DataFrame(np_historical_data, columns=[DataColumns.OPEN_TIME.value, DataColumns.OPEN.value, DataColumns.HIGH.value, DataColumns.LOW.value, DataColumns.CLOSE.value, DataColumns.VOLUME.value, DataColumns.CLOSE_TIME.value])
         df[DataColumns.OPEN_TIME_READABLE.value] = df.apply(lambda row: datetime.fromtimestamp(float(row[DataColumns.OPEN_TIME.value])/1000), axis=1)
         df[DataColumns.CLOSE_TIME_READABLE.value] = df.apply(lambda row: datetime.fromtimestamp(float(row[DataColumns.CLOSE_TIME.value])/1000), axis=1)
         df.to_csv('./historical_data.csv')
-        return df
-    else:
-        df = pd.read_table(
-            './historical_data.csv',
-            header=None,
-            sep=',',
-            names=[DataColumns.OPEN_TIME.value, DataColumns.OPEN.value, DataColumns.HIGH.value, DataColumns.LOW.value, DataColumns.CLOSE.value, DataColumns.VOLUME.value, DataColumns.CLOSE_TIME.value, DataColumns.OPEN_TIME_READABLE.value, DataColumns.CLOSE_TIME_READABLE.value]
-        )
-        df = df.iloc[1: , :]
-        types_dict = {DataColumns.OPEN.value: float, DataColumns.HIGH.value: float, DataColumns.LOW.value: float, DataColumns.CLOSE.value: float, DataColumns.VOLUME.value: float}
-        for col, col_type in types_dict.items():
-            df[col] = df[col].astype(col_type)
-        return df
+    df = pd.read_table(
+        './historical_data.csv',
+        header=None,
+        sep=',',
+        names=[DataColumns.OPEN_TIME.value, DataColumns.OPEN.value, DataColumns.HIGH.value, DataColumns.LOW.value, DataColumns.CLOSE.value, DataColumns.VOLUME.value, DataColumns.CLOSE_TIME.value, DataColumns.OPEN_TIME_READABLE.value, DataColumns.CLOSE_TIME_READABLE.value]
+    )
+    df = df.iloc[1: , :]
+    types_dict = {DataColumns.OPEN.value: float, DataColumns.HIGH.value: float, DataColumns.LOW.value: float, DataColumns.CLOSE.value: float, DataColumns.VOLUME.value: float}
+    for col, col_type in types_dict.items():
+        df[col] = df[col].astype(col_type)
+    return df
 
     
