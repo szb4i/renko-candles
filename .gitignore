@@ -1,2 +1,3 @@
 credentials.py
 *.csv
+__pycache__
