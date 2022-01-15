@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import plotly.graph_objects as go
 import talib
@@ -6,75 +7,122 @@ from plotly.subplots import make_subplots
 class Renko():
     def __init__(self, o, h, l, c, v, t) -> None:
         self.atr_time_period = 14
+        self.sma_time_period = 10
         self.first_atr = abs(l[0]-h[0])
-        # bricks: items: x, t, brick_open, brick_close, 
+        # bricks: items: x, t, brick_open, brick_close, volume
         self.bricks = []
-        volume = 0
-        brick_open = o[0]
-        last_brick_direction = None
-        # last_brick_direction: 0->bearish, 1->bullish
-        brick_size = self.__get_last_atr(h[0:self.atr_time_period+1:], l[0:self.atr_time_period+1:], c[0:self.atr_time_period+1:])
-        for i in range(self.atr_time_period+1, len(c)):    
-            volume += v[i]
-            if c[i]>brick_open+brick_size:
-                if None == last_brick_direction or (1 == last_brick_direction and c[i]>brick_open+brick_size):
-                    self.bricks.append([i, t[i], brick_open, brick_open+brick_size, volume])
-                    brick_open = brick_open+brick_size
-                    last_brick_direction = 1
-                    brick_size = self.__get_last_atr(h[0:self.atr_time_period+1:], l[0:self.atr_time_period+1:], c[0:self.atr_time_period+1:])
-                    volume = 0
-                elif 0 == last_brick_direction and c[i]>brick_open+brick_size*2:
-                    self.bricks.append([i, t[i], brick_open+brick_size, brick_open+brick_size*2, volume])
-                    brick_open = brick_open+brick_size*2
-                    last_brick_direction = 1
-                    brick_size = self.__get_last_atr(h[0:self.atr_time_period+1:], l[0:self.atr_time_period+1:], c[0:self.atr_time_period+1:])
-                    volume = 0
-            elif c[i]<brick_open-brick_size:
-                if None == last_brick_direction or (0 == last_brick_direction  and c[i]<brick_open-brick_size):
-                    self.bricks.append([i, t[i], brick_open, brick_open-brick_size, volume])
-                    brick_open = brick_open-brick_size
-                    last_brick_direction = 0
-                    brick_size = self.__get_last_atr(h[0:self.atr_time_period+1:], l[0:self.atr_time_period+1:], c[0:self.atr_time_period+1:])
-                    volume = 0
-                elif 1 == last_brick_direction and c[i]<brick_open-brick_size*2:
-                    self.bricks.append([i, t[i], brick_open-brick_size, brick_open-brick_size*2, volume])
-                    brick_open = brick_open-brick_size*2
-                    last_brick_direction = 0
-                    brick_size = self.__get_last_atr(h[0:self.atr_time_period+1:], l[0:self.atr_time_period+1:], c[0:self.atr_time_period+1:])
-                    volume = 0
-        self.bricks = np.array(self.bricks)
-        self.sma = talib.SMA(self.bricks[:,3].astype(np.double), timeperiod=10)
-        self.obv = talib.OBV(self.bricks[:,3].astype(np.double), self.bricks[:,4].astype(np.double))
+        self.sma = []
+        self.obv = []
+        self.volume_in_brick = 0
+        self.brick_open = o[0]
+        self.last_brick_direction = None
+        # self.last_brick_direction: 0->bearish, 1->bullish
+        self.brick_size = self.__get_last_atr(h[0:self.atr_time_period+1:], l[0:self.atr_time_period+1:], c[0:self.atr_time_period+1:])
+        for i in range(self.atr_time_period+1, len(c)):
+            self.__append_candle(o, h, l, c, v, t, i)        
+        self.__set_sma()
+        self.__set_obv()
 
-    def __get_last_atr(self, h, l, c):
-        atr = np.array(talib.ATR(high=h, low=l, close=c, timeperiod=self.atr_time_period))
-        return atr[-1]
+    def append_candle(self, o, h, l, c, v, t, i):
+        # call it when running live. appends candle (transforms it to brick if passes conditions), updates sma and obv also
+        self.__append_candle(o, h, l, c, v, t, i)
+        self.__set_sma()
+        self.__set_obv()
 
     def plot(self):
+        np_bricks = np.array(self.bricks)
         fig = make_subplots(rows=2, cols=1)
         fig.add_trace(
                 go.Candlestick(
-                    x=self.bricks[:,0],
-                    open=self.bricks[:,2],
-                    high=self.bricks[:,2],
-                    low=self.bricks[:,3],
-                    close=self.bricks[:,3],
-                    hovertext=self.bricks[:,1]
+                    x=np_bricks[:,0],
+                    open=np_bricks[:,2],
+                    high=np_bricks[:,2],
+                    low=np_bricks[:,3],
+                    close=np_bricks[:,3],
+                    hovertext=np_bricks[:,1]
                 ),
             1, 1
         )
         fig.add_trace(
                 go.Scatter(
-                    x=self.bricks[:,0],
+                    x=np_bricks[:,0],
                     y=self.sma
                 ),
             1, 1
         )
         fig.add_trace(
                 go.Scatter(
-                    x=self.bricks[:,0],
+                    x=np_bricks[:,0],
                     y=self.obv
                 ),
             2, 1
         )
         fig.show()
+
+    def test_strategy(self):
+        buy_price = 0
+        profit = 1
+        win_counter = 0
+        loss_counter = 0
+        brick_growth_in_position = 0
+        in_long_position = False
+        for i in range(self.sma_time_period, len(self.bricks)):
+            if not in_long_position and self.bricks[i][3]>self.sma[i] and self.obv[i]>self.obv[i-1] and self.obv[i-1]>self.obv[i-2]:
+                in_long_position = True
+                buy_price = self.bricks[i][3]
+            elif in_long_position and self.bricks[i-1][3] < self.bricks[i][3] and brick_growth_in_position < 2:
+                brick_growth_in_position += 1
+            elif in_long_position and self.bricks[i-1][3] > self.bricks[i][3] and brick_growth_in_position > 0:
+                brick_growth_in_position -= 1
+            elif in_long_position and self.bricks[i-1][3] < self.bricks[i][3] and brick_growth_in_position == 2:
+                profit *= (self.bricks[i][3]/buy_price)
+                win_counter += 1
+                in_long_position = False
+                brick_growth_in_position = 0
+            elif in_long_position and self.bricks[i-1][3] > self.bricks[i][3] and brick_growth_in_position == 0:
+                profit *= (self.bricks[i][3]/buy_price)
+                loss_counter += 1
+                in_long_position = False
+                brick_growth_in_position = 0
+        print('profit: ' + str(profit))
+        print('win_counter: ' + str(win_counter))
+        print('loss_counter: ' + str(loss_counter))
+
+    def __append_candle(self, o, h, l, c, v, t, i):
+        self.volume_in_brick += v[i]
+        if c[i]>self.brick_open+self.brick_size:
+            if None == self.last_brick_direction or (1 == self.last_brick_direction and c[i]>self.brick_open+self.brick_size):
+                self.bricks.append([len(self.bricks), t[i], self.brick_open, self.brick_open+self.brick_size, self.volume_in_brick])
+                self.brick_open = self.brick_open+self.brick_size
+                self.last_brick_direction = 1
+                self.brick_size = self.__get_last_atr(h[0:self.atr_time_period+1:], l[0:self.atr_time_period+1:], c[0:self.atr_time_period+1:])
+                self.volume_in_brick = 0
+            elif 0 == self.last_brick_direction and c[i]>self.brick_open+self.brick_size*2:
+                self.bricks.append([len(self.bricks), t[i], self.brick_open+self.brick_size, self.brick_open+self.brick_size*2, self.volume_in_brick])
+                self.brick_open = self.brick_open+self.brick_size*2
+                self.last_brick_direction = 1
+                self.brick_size = self.__get_last_atr(h[0:self.atr_time_period+1:], l[0:self.atr_time_period+1:], c[0:self.atr_time_period+1:])
+                self.volume_in_brick = 0
+        elif c[i]<self.brick_open-self.brick_size:
+            if None == self.last_brick_direction or (0 == self.last_brick_direction  and c[i]<self.brick_open-self.brick_size):
+                self.bricks.append([len(self.bricks), t[i], self.brick_open, self.brick_open-self.brick_size, self.volume_in_brick])
+                self.brick_open = self.brick_open-self.brick_size
+                self.last_brick_direction = 0
+                self.brick_size = self.__get_last_atr(h[0:self.atr_time_period+1:], l[0:self.atr_time_period+1:], c[0:self.atr_time_period+1:])
+                self.volume_in_brick = 0
+            elif 1 == self.last_brick_direction and c[i]<self.brick_open-self.brick_size*2:
+                self.bricks.append([len(self.bricks), t[i], self.brick_open-self.brick_size, self.brick_open-self.brick_size*2, self.volume_in_brick])
+                self.brick_open = self.brick_open-self.brick_size*2
+                self.last_brick_direction = 0
+                self.brick_size = self.__get_last_atr(h[0:self.atr_time_period+1:], l[0:self.atr_time_period+1:], c[0:self.atr_time_period+1:])
+                self.volume_in_brick = 0
+
+    def __set_sma(self):
+        self.sma = talib.SMA(np.array(list(sub[3] for sub in self.bricks)), timeperiod=self.sma_time_period)
+
+    def __set_obv(self):
+        self.obv = talib.OBV(np.array(list(sub[3] for sub in self.bricks)), np.array(list(sub[4] for sub in self.bricks)))
+
+    def __get_last_atr(self, h, l, c):
+        atr = np.array(talib.ATR(high=h, low=l, close=c, timeperiod=self.atr_time_period))
+        return atr[-1]
