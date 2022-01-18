@@ -89,12 +89,11 @@ class Renko():
                 else:
                     win_counter += 1
                 in_short_position = False
-        print('time interval: {}'.format(TIME_INTERVAL[:-3]))
         print('profit: ' + str(profit))
         print('win_counter: ' + str(win_counter))
         print('loss_counter: ' + str(loss_counter))
         print("win rate {}".format(win_counter/(win_counter+loss_counter)))
-        print('average position per day: {}'.format((win_counter+loss_counter)/30/6))
+        print('average position per day: {}'.format((win_counter+loss_counter)/30/12))
 
     def __append_candle(self, o, h, l, c, v, t, i):
         self.volume_in_brick += v[i]
