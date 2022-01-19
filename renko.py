@@ -3,13 +3,14 @@ import numpy as np
 import plotly.graph_objects as go
 import talib
 from plotly.subplots import make_subplots
+from logger import write_log
 
 class Renko():
     def __init__(self, o, h, l, c, v, t) -> None:
         self.atr_time_period = 14
         self.sma_time_period = 9
         self.first_atr = abs(l[0]-h[0])
-        # bricks: items: x, t, brick_open, brick_close, volume
+        # bricks: items: index, t, brick_open, brick_close, volume, last_brick_direction
         self.bricks = []
         self.sma = []
         self.obv = []
@@ -67,17 +68,20 @@ class Renko():
         loss_counter = 0
         brick_growth_in_position = 0
         in_long_position = False
-        in_short_position= False
+        in_short_position = False
         for i in range(self.sma_time_period, len(self.bricks)):
             if not in_long_position and not in_short_position and self.bricks[i][3]>self.sma[i] and self.obv[i]>self.obv[i-1] and self.bricks[i][5]==1:
                 in_long_position = True
                 buy_price = self.bricks[i][3]
+                write_log(self.bricks[i][1], 'long_op', [], [])
             elif in_long_position and self.bricks[i][3] < self.sma[i]:
                 profit *= (self.bricks[i][3]/buy_price-0.0015)
                 if buy_price<self.bricks[i][3]:
                     loss_counter += 1
+                    write_log(self.bricks[i][1], 'long_lost', ['profit'], [profit])
                 else:
                     win_counter += 1
+                    write_log(self.bricks[i][1], 'long_won', ['profit'], [profit])
                 in_long_position = False
             if not in_long_position and not in_short_position and self.bricks[i][3]<self.sma[i] and self.obv[i]<self.obv[i-1] and self.bricks[i][5]==0:
                 in_short_position = True
