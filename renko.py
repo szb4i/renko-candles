@@ -37,7 +37,7 @@ class Renko():
         fig = make_subplots(rows=1, cols=1)
         fig.add_trace(
                 go.Candlestick(
-                    x=np_bricks[:,0],
+                    x=np_bricks[:,1],
                     open=np_bricks[:,2],
                     high=np_bricks[:,2],
                     low=np_bricks[:,3],
@@ -48,8 +48,9 @@ class Renko():
         )
         fig.add_trace(
                 go.Scatter(
-                    x=np_bricks[:,0],
-                    y=self.sma
+                    x=np_bricks[:,1],
+                    y=self.sma,
+                    hoverinfo='skip'
                 ),
             1, 1
         )
@@ -60,6 +61,7 @@ class Renko():
         #         ),
         #     2, 1
         # )
+        fig.update_xaxes(type='category')
         fig.show()
 
     def test_strategy(self):

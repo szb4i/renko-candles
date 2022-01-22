@@ -9,7 +9,7 @@ import credentials
 
 client=Client(credentials.getBinanceKey(), credentials.getBinanceSecretKey())
 
-TIME_INTERVAL = '1 week ago UTC'
+TIME_INTERVAL = '2 week ago UTC'
 CURRENCY_PAIR = 'BTCBUSD'
 CANDLE_INTERVAL = Client.KLINE_INTERVAL_1MINUTE
 
@@ -43,13 +43,15 @@ class DataColumns(Enum):
 
 def getData():
     if not os.path.isfile('./historical_data.csv'):
+        print('./historical_data.csv not found. downloading...')
         historical_data = client.get_historical_klines(CURRENCY_PAIR, CANDLE_INTERVAL, TIME_INTERVAL)
         np_historical_data = np.array(historical_data)
         np_historical_data = np.delete(np_historical_data, range(7, 12), 1)
         df = pd.DataFrame(np_historical_data, columns=[DataColumns.OPEN_TIME.value, DataColumns.OPEN.value, DataColumns.HIGH.value, DataColumns.LOW.value, DataColumns.CLOSE.value, DataColumns.VOLUME.value, DataColumns.CLOSE_TIME.value])
-        df[DataColumns.OPEN_TIME_READABLE.value] = df.apply(lambda row: datetime.fromtimestamp(float(row[DataColumns.OPEN_TIME.value])/1000), axis=1)
-        df[DataColumns.CLOSE_TIME_READABLE.value] = df.apply(lambda row: datetime.fromtimestamp(float(row[DataColumns.CLOSE_TIME.value])/1000), axis=1)
+        df[DataColumns.OPEN_TIME_READABLE.value] = df.apply(lambda row: datetime.fromtimestamp(float(row[DataColumns.OPEN_TIME.value])/1000).strftime("%y.%m.%d.%H:%M"), axis=1)
+        df[DataColumns.CLOSE_TIME_READABLE.value] = df.apply(lambda row: datetime.fromtimestamp(float(row[DataColumns.CLOSE_TIME.value])/1000).strftime("%y.%m.%d.%H:%M"), axis=1)
         df.to_csv('./historical_data.csv')
+        print('./historical_data.csv saved')
     df = pd.read_table(
         './historical_data.csv',
         header=None,
