@@ -28,9 +28,58 @@ class Renko():
 
     def append_candle(self, o, h, l, c, v, t, i):
         # call it when running live. appends candle (transforms it to brick if passes conditions), updates sma and obv also
+        # returns true if new renko brick is added. false otherwise
+        bricks_len = len(self.bricks)
         self.__append_candle(o, h, l, c, v, t, i)
+        if bricks_len == len(self.bricks):
+            return False
         self.__set_sma()
         self.__set_obv()
+        return True
+
+    def __append_candle(self, o, h, l, c, v, t, i):
+        self.volume_in_brick += v[i]
+        if h[i]<self.brick_open-self.brick_size:
+            if None == self.last_brick_direction or (0 == self.last_brick_direction  and h[i]<self.brick_open-self.brick_size):
+                self.bricks.append([len(self.bricks), t[i], self.brick_open, self.brick_open-self.brick_size, self.volume_in_brick,self.last_brick_direction])
+                self.brick_open = self.brick_open-self.brick_size
+                self.last_brick_direction = 0
+                self.brick_size = self.__get_last_atr(h[0:i:], l[0:i:], c[0:i:])
+                self.volume_in_brick = 0
+            elif 1 == self.last_brick_direction and h[i]<self.brick_open-self.brick_size*2:
+                self.bricks.append([len(self.bricks), t[i], self.brick_open-self.brick_size, self.brick_open-self.brick_size*2, self.volume_in_brick,self.last_brick_direction])
+                self.brick_open = self.brick_open-self.brick_size*2
+                self.last_brick_direction = 0
+                self.brick_size = self.__get_last_atr(h[0:i:], l[0:i:], c[0:i:])
+                self.volume_in_brick = 0
+        elif l[i]>self.brick_open+self.brick_size:
+            if None == self.last_brick_direction or (1 == self.last_brick_direction and l[i]>self.brick_open+self.brick_size):
+                self.bricks.append([len(self.bricks), t[i], self.brick_open, self.brick_open+self.brick_size, self.volume_in_brick,self.last_brick_direction])
+                self.brick_open = self.brick_open+self.brick_size
+                self.last_brick_direction = 1
+                self.brick_size = self.__get_last_atr(h[0:i:], l[0:i:], c[0:i:])
+                self.volume_in_brick = 0
+            elif 0 == self.last_brick_direction and l[i]>self.brick_open+self.brick_size*2:
+                self.bricks.append([len(self.bricks), t[i], self.brick_open+self.brick_size, self.brick_open+self.brick_size*2, self.volume_in_brick,self.last_brick_direction])
+                self.brick_open = self.brick_open+self.brick_size*2
+                self.last_brick_direction = 1
+                self.brick_size = self.__get_last_atr(h[0:i:], l[0:i:], c[0:i:])
+                self.volume_in_brick = 0
+
+    def __set_sma(self):
+        self.sma = talib.SMA(np.array(list(sub[3] for sub in self.bricks)), timeperiod=SMA_TIME_PERIOD)
+
+    def __set_obv(self):
+        self.obv = talib.OBV(np.array(list(sub[3] for sub in self.bricks)), np.array(list(sub[4] for sub in self.bricks)))
+
+    def __get_last_atr(self, h, l, c):
+        start_index = (len(h)%CANDLE_PERIOD_FOR_ATR)
+        n_of_rows = (len(h)-start_index)//CANDLE_PERIOD_FOR_ATR
+        high = np.array(h[start_index::]).reshape((n_of_rows, CANDLE_PERIOD_FOR_ATR)).max(axis=1)
+        low = np.array(l[start_index::]).reshape((n_of_rows, CANDLE_PERIOD_FOR_ATR)).min(axis=1)
+        close = c[start_index::CANDLE_PERIOD_FOR_ATR]
+        atr = np.array(talib.ATR(high=high, low=low, close=close, timeperiod=ATR_TIME_PERIOD))
+        return atr[-1]
 
     def plot(self):
         np_bricks = np.array(self.bricks)
@@ -104,47 +153,3 @@ class Renko():
         print('loss_counter: ' + str(loss_counter))
         print("win rate {}".format(win_counter/(win_counter+loss_counter)))
         print('average position per day: {}'.format((win_counter+loss_counter)/30/12))
-
-    def __append_candle(self, o, h, l, c, v, t, i):
-        self.volume_in_brick += v[i]
-        if h[i]<self.brick_open-self.brick_size:
-            if None == self.last_brick_direction or (0 == self.last_brick_direction  and h[i]<self.brick_open-self.brick_size):
-                self.bricks.append([len(self.bricks), t[i], self.brick_open, self.brick_open-self.brick_size, self.volume_in_brick,self.last_brick_direction])
-                self.brick_open = self.brick_open-self.brick_size
-                self.last_brick_direction = 0
-                self.brick_size = self.__get_last_atr(h[0:i:], l[0:i:], c[0:i:])
-                self.volume_in_brick = 0
-            elif 1 == self.last_brick_direction and h[i]<self.brick_open-self.brick_size*2:
-                self.bricks.append([len(self.bricks), t[i], self.brick_open-self.brick_size, self.brick_open-self.brick_size*2, self.volume_in_brick,self.last_brick_direction])
-                self.brick_open = self.brick_open-self.brick_size*2
-                self.last_brick_direction = 0
-                self.brick_size = self.__get_last_atr(h[0:i:], l[0:i:], c[0:i:])
-                self.volume_in_brick = 0
-        elif l[i]>self.brick_open+self.brick_size:
-            if None == self.last_brick_direction or (1 == self.last_brick_direction and l[i]>self.brick_open+self.brick_size):
-                self.bricks.append([len(self.bricks), t[i], self.brick_open, self.brick_open+self.brick_size, self.volume_in_brick,self.last_brick_direction])
-                self.brick_open = self.brick_open+self.brick_size
-                self.last_brick_direction = 1
-                self.brick_size = self.__get_last_atr(h[0:i:], l[0:i:], c[0:i:])
-                self.volume_in_brick = 0
-            elif 0 == self.last_brick_direction and l[i]>self.brick_open+self.brick_size*2:
-                self.bricks.append([len(self.bricks), t[i], self.brick_open+self.brick_size, self.brick_open+self.brick_size*2, self.volume_in_brick,self.last_brick_direction])
-                self.brick_open = self.brick_open+self.brick_size*2
-                self.last_brick_direction = 1
-                self.brick_size = self.__get_last_atr(h[0:i:], l[0:i:], c[0:i:])
-                self.volume_in_brick = 0
-
-    def __set_sma(self):
-        self.sma = talib.SMA(np.array(list(sub[3] for sub in self.bricks)), timeperiod=SMA_TIME_PERIOD)
-
-    def __set_obv(self):
-        self.obv = talib.OBV(np.array(list(sub[3] for sub in self.bricks)), np.array(list(sub[4] for sub in self.bricks)))
-
-    def __get_last_atr(self, h, l, c):
-        start_index = (len(h)%CANDLE_PERIOD_FOR_ATR)
-        n_of_rows = (len(h)-start_index)//CANDLE_PERIOD_FOR_ATR
-        high = np.array(h[start_index::]).reshape((n_of_rows, CANDLE_PERIOD_FOR_ATR)).max(axis=1)
-        low = np.array(l[start_index::]).reshape((n_of_rows, CANDLE_PERIOD_FOR_ATR)).min(axis=1)
-        close = c[start_index::CANDLE_PERIOD_FOR_ATR]
-        atr = np.array(talib.ATR(high=high, low=low, close=close, timeperiod=ATR_TIME_PERIOD))
-        return atr[-1]
