@@ -74,25 +74,28 @@ class Renko():
             if not in_long_position and not in_short_position and self.bricks[i][3]>self.sma[i] and self.obv[i]>self.obv[i-1] and self.bricks[i][5]==1:
                 in_long_position = True
                 buy_price = self.bricks[i][3]
-                write_log(self.bricks[i][1], 'long_op', [], [])
+                write_log(self.bricks[i][1], 'long_op', ['brick_cl'], [buy_price])
             elif in_long_position and self.bricks[i][3] < self.sma[i]:
                 profit *= (self.bricks[i][3]/buy_price-0.0015)
                 if buy_price<self.bricks[i][3]:
-                    loss_counter += 1
-                    write_log(self.bricks[i][1], 'long_lost', ['profit'], [profit])
-                else:
                     win_counter += 1
-                    write_log(self.bricks[i][1], 'long_won', ['profit'], [profit])
+                    write_log(self.bricks[i][1], 'long_wn', ['brick_cl', 'profit'], [self.bricks[i][3], profit])
+                else:
+                    loss_counter += 1
+                    write_log(self.bricks[i][1], 'long_ls', ['brick_cl', 'profit'], [self.bricks[i][3], profit])
                 in_long_position = False
             if not in_long_position and not in_short_position and self.bricks[i][3]<self.sma[i] and self.obv[i]<self.obv[i-1] and self.bricks[i][5]==0:
                 in_short_position = True
                 sell_price = self.bricks[i][3]
+                write_log(self.bricks[i][1], 'shrt_op', ['brick_cl'], [sell_price])
             elif in_short_position and self.bricks[i][3] > self.sma[i]:
                 profit *= (sell_price/self.bricks[i][3]-0.0015)
-                if sell_price<self.bricks[i][3]:
-                    loss_counter += 1
-                else:
+                if sell_price>self.bricks[i][3]:
                     win_counter += 1
+                    write_log(self.bricks[i][1], 'shrt_wn', ['brick_cl', 'profit'], [self.bricks[i][3], profit])
+                else:
+                    loss_counter += 1
+                    write_log(self.bricks[i][1], 'shrt_ls', ['brick_cl', 'profit'], [self.bricks[i][3], profit])
                 in_short_position = False
         print('profit: ' + str(profit))
         print('win_counter: ' + str(win_counter))

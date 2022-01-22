@@ -13,5 +13,5 @@ def write_log(time, action: str, indicator_names: List[str], indicator_values: L
         if str == type(indicator_values[index]):
             indicator_message += indicator_names[index] + ': ' + indicator_values[index]  +'; '
         else:
-            indicator_message += indicator_names[index] + ': ' + "{:.2f}".format(indicator_values[index])  +'; '
+            indicator_message += indicator_names[index] + ': ' + "{:.4f}".format(indicator_values[index])  +'; '
     logging.info(indicator_message)
