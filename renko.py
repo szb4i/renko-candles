@@ -10,6 +10,11 @@ SMA_TIME_PERIOD = 9
 CANDLE_PERIOD_FOR_ATR = 5
 # for example: if candle interval is 1 min and you want to calculate ATR for 5 min candles -> CANDLE_PERIOD_FOR_ATR = 5
 
+TRADE_QUANTITY=0.032
+LEVERAGE=3.0
+FEE = 0.0015
+INTEREST_RATE = 0.0004
+
 class Renko():
     def __init__(self, o, h, l, c, v, t) -> None:
         self.bricks = []
@@ -127,7 +132,9 @@ class Renko():
                 buy_price = self.bricks[i][3]
                 write_log(self.bricks[i][1], 'long_op', ['brick_cl'], [buy_price])
             elif in_long_position and self.bricks[i][3] < self.sma[i]:
-                profit *= (self.bricks[i][3]/buy_price-0.0015)
+                # profit *= (self.bricks[i][3]/buy_price-0.0015)
+                interest_rate = INTEREST_RATE*TRADE_QUANTITY*(2*LEVERAGE-1)*self.bricks[i][3]
+                profit*=(1+((self.bricks[i][3]-buy_price)*TRADE_QUANTITY*LEVERAGE-FEE-interest_rate)/(buy_price*TRADE_QUANTITY))
                 if buy_price<self.bricks[i][3]:
                     win_counter += 1
                     write_log(self.bricks[i][1], 'long_wn', ['brick_cl', 'profit'], [self.bricks[i][3], profit])
@@ -140,7 +147,9 @@ class Renko():
                 sell_price = self.bricks[i][3]
                 write_log(self.bricks[i][1], 'shrt_op', ['brick_cl'], [sell_price])
             elif in_short_position and self.bricks[i][3] > self.sma[i]:
-                profit *= (sell_price/self.bricks[i][3]-0.0015)
+                # profit *= (sell_price/self.bricks[i][3]-0.0015)
+                interest_rate = INTEREST_RATE*TRADE_QUANTITY*(2*LEVERAGE-1)*self.bricks[i][3]
+                profit*=(1+((sell_price-self.bricks[i][3])*TRADE_QUANTITY*LEVERAGE-FEE-interest_rate)/(self.bricks[i][3]*TRADE_QUANTITY))
                 if sell_price>self.bricks[i][3]:
                     win_counter += 1
                     write_log(self.bricks[i][1], 'shrt_wn', ['brick_cl', 'profit'], [self.bricks[i][3], profit])
