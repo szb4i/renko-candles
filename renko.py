@@ -133,8 +133,9 @@ class Renko():
                 write_log(self.bricks[i][1], 'long_op', ['brick_cl'], [buy_price])
             elif in_long_position and self.bricks[i][3] < self.sma[i]:
                 # profit *= (self.bricks[i][3]/buy_price-0.0015)
+                fee=FEE*TRADE_QUANTITY*(2*LEVERAGE-1)*self.bricks[i][3]
                 interest_rate = INTEREST_RATE*TRADE_QUANTITY*(2*LEVERAGE-1)*self.bricks[i][3]
-                profit*=(1+((self.bricks[i][3]-buy_price)*TRADE_QUANTITY*LEVERAGE-FEE-interest_rate)/(buy_price*TRADE_QUANTITY))
+                profit*=(1+((self.bricks[i][3]-buy_price)*TRADE_QUANTITY*LEVERAGE-fee-interest_rate)/(buy_price*TRADE_QUANTITY))
                 if buy_price<self.bricks[i][3]:
                     win_counter += 1
                     write_log(self.bricks[i][1], 'long_wn', ['brick_cl', 'profit'], [self.bricks[i][3], profit])
@@ -148,8 +149,9 @@ class Renko():
                 write_log(self.bricks[i][1], 'shrt_op', ['brick_cl'], [sell_price])
             elif in_short_position and self.bricks[i][3] > self.sma[i]:
                 # profit *= (sell_price/self.bricks[i][3]-0.0015)
+                fee=FEE*TRADE_QUANTITY*(2*LEVERAGE-1)*sell_price
                 interest_rate = INTEREST_RATE*TRADE_QUANTITY*(2*LEVERAGE-1)*self.bricks[i][3]
-                profit*=(1+((sell_price-self.bricks[i][3])*TRADE_QUANTITY*LEVERAGE-FEE-interest_rate)/(self.bricks[i][3]*TRADE_QUANTITY))
+                profit*=(1+((sell_price-self.bricks[i][3])*TRADE_QUANTITY*LEVERAGE-fee-interest_rate)/(self.bricks[i][3]*TRADE_QUANTITY))
                 if sell_price>self.bricks[i][3]:
                     win_counter += 1
                     write_log(self.bricks[i][1], 'shrt_wn', ['brick_cl', 'profit'], [self.bricks[i][3], profit])
