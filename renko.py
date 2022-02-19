@@ -1,4 +1,5 @@
 import math
+import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import talib
@@ -7,7 +8,7 @@ from logger import write_log
 
 ATR_TIME_PERIOD = 14
 SMA_TIME_PERIOD = 9
-CANDLE_PERIOD_FOR_ATR = 5
+CANDLE_PERIOD_FOR_ATR = 1
 # for example: if candle interval is 1 min and you want to calculate ATR for 5 min candles -> CANDLE_PERIOD_FOR_ATR = 5
 
 TRADE_QUANTITY=0.032
@@ -15,7 +16,7 @@ LEVERAGE=3.0
 FEE = 0.0015
 INTEREST_RATE = 0.0004
 
-class Renko():
+class Renko(): 
     def __init__(self, o, h, l, c, v, t) -> None:
         self.bricks = []
         # bricks: items: index, t, brick_open, brick_close, volume, last_brick_direction
@@ -26,34 +27,37 @@ class Renko():
         self.last_brick_direction = None
         # self.last_brick_direction: 0->bearish, 1->bullish
         self.brick_size = self.__get_last_atr(h[0:ATR_TIME_PERIOD*(CANDLE_PERIOD_FOR_ATR+1):], l[0:ATR_TIME_PERIOD*(CANDLE_PERIOD_FOR_ATR+1):], c[0:ATR_TIME_PERIOD*(CANDLE_PERIOD_FOR_ATR+1):])
+        self.prev_brick_size=0
         for i in range(ATR_TIME_PERIOD*(CANDLE_PERIOD_FOR_ATR+1), len(c)):
-            self.__append_candle(o, h, l, c, v, t, i)        
+            self.__append_brick(o, h, l, c, v, t, i)        
         self.__set_sma()
         self.__set_obv()
 
-    def append_candle(self, o, h, l, c, v, t, i):
-        # call it when running live. appends candle (transforms it to brick if passes conditions), updates sma and obv also
+    def append_brick(self, o, h, l, c, v, t, i):
+        # call it when running live. appends brick (transforms it to brick if passes conditions), updates sma and obv also
         # returns true if new renko brick is added. false otherwise
         bricks_len = len(self.bricks)
-        self.__append_candle(o, h, l, c, v, t, i)
+        self.__append_brick(o, h, l, c, v, t, i)
         if bricks_len == len(self.bricks):
             return False
         self.__set_sma()
         self.__set_obv()
         return True
 
-    def __append_candle(self, o, h, l, c, v, t, i):
+    def __append_brick(self, o, h, l, c, v, t, i):
         self.volume_in_brick += v[i]
         if l[i]<self.brick_open-self.brick_size:
             if None == self.last_brick_direction or (0 == self.last_brick_direction  and l[i]<self.brick_open-self.brick_size):
                 self.last_brick_direction = 0
                 self.bricks.append([len(self.bricks), t[i], self.brick_open, self.brick_open-self.brick_size, self.volume_in_brick,self.last_brick_direction])
+                self.prev_brick_size=self.brick_size
                 self.brick_open = self.brick_open-self.brick_size
                 self.brick_size = self.__get_last_atr(h[0:i:], l[0:i:], c[0:i:])
                 self.volume_in_brick = 0
             elif 1 == self.last_brick_direction and l[i]<self.brick_open-self.brick_size*2:
                 self.last_brick_direction = 0
-                self.bricks.append([len(self.bricks), t[i], self.brick_open-self.brick_size, self.brick_open-self.brick_size*2, self.volume_in_brick,self.last_brick_direction])
+                self.bricks.append([len(self.bricks), t[i], self.brick_open-self.prev_brick_size, self.brick_open-self.brick_size*2, self.volume_in_brick,self.last_brick_direction])
+                self.prev_brick_size=self.brick_size
                 self.brick_open = self.brick_open-self.brick_size*2
                 self.brick_size = self.__get_last_atr(h[0:i:], l[0:i:], c[0:i:])
                 self.volume_in_brick = 0
@@ -61,12 +65,14 @@ class Renko():
             if None == self.last_brick_direction or (1 == self.last_brick_direction and h[i]>self.brick_open+self.brick_size):
                 self.last_brick_direction = 1
                 self.bricks.append([len(self.bricks), t[i], self.brick_open, self.brick_open+self.brick_size, self.volume_in_brick,self.last_brick_direction])
+                self.prev_brick_size=self.brick_size
                 self.brick_open = self.brick_open+self.brick_size
                 self.brick_size = self.__get_last_atr(h[0:i:], l[0:i:], c[0:i:])
                 self.volume_in_brick = 0
             elif 0 == self.last_brick_direction and h[i]>self.brick_open+self.brick_size*2:
                 self.last_brick_direction = 1
-                self.bricks.append([len(self.bricks), t[i], self.brick_open+self.brick_size, self.brick_open+self.brick_size*2, self.volume_in_brick,self.last_brick_direction])
+                self.bricks.append([len(self.bricks), t[i], self.brick_open+self.prev_brick_size, self.brick_open+self.brick_size*2, self.volume_in_brick,self.last_brick_direction])
+                self.prev_brick_size=self.brick_size
                 self.brick_open = self.brick_open+self.brick_size*2
                 self.brick_size = self.__get_last_atr(h[0:i:], l[0:i:], c[0:i:])
                 self.volume_in_brick = 0
@@ -106,14 +112,6 @@ class Renko():
                 )
         )
         fig.update_layout(xaxis_rangeslider_visible=False)
-        fig.add_trace(
-                go.Scatter(
-                    x=np_bricks[:,1],
-                    y=self.obv,
-                    hoverinfo='skip'
-                ),
-            secondary_y=True,
-        )
         fig.update_xaxes(type='category')
         fig.show()
 
@@ -161,5 +159,9 @@ class Renko():
         print('profit: ' + str(profit))
         print('win_counter: ' + str(win_counter))
         print('loss_counter: ' + str(loss_counter))
-        print("win rate {}".format(win_counter/(win_counter+loss_counter)))
-        print('average position per day: {}'.format((win_counter+loss_counter)/30/12))
+        if win_counter+loss_counter!=0: print("win rate {}".format(win_counter/(win_counter+loss_counter)))
+        print('total number of positions : {}'.format(win_counter+loss_counter))
+
+    def save_bricks(self):
+        df=pd.DataFrame(self.bricks)
+        df.to_csv('./bricks.csv')
