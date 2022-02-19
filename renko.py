@@ -11,7 +11,7 @@ SMA_TIME_PERIOD = 9
 CANDLE_PERIOD_FOR_ATR = 1
 # for example: if candle interval is 1 min and you want to calculate ATR for 5 min candles -> CANDLE_PERIOD_FOR_ATR = 5
 
-TRADE_QUANTITY=0.032
+TRADE_QUANTITY=1
 LEVERAGE=3.0
 FEE = 0.0015
 INTEREST_RATE = 0.0004
