@@ -10,6 +10,11 @@ SMA_TIME_PERIOD = 9
 CANDLE_PERIOD_FOR_ATR = 5
 # for example: if candle interval is 1 min and you want to calculate ATR for 5 min candles -> CANDLE_PERIOD_FOR_ATR = 5
 
+TRADE_QUANTITY=0.032
+LEVERAGE=3.0
+FEE = 0.0015
+INTEREST_RATE = 0.0004
+
 class Renko():
     def __init__(self, o, h, l, c, v, t) -> None:
         self.bricks = []
@@ -39,30 +44,30 @@ class Renko():
 
     def __append_candle(self, o, h, l, c, v, t, i):
         self.volume_in_brick += v[i]
-        if h[i]<self.brick_open-self.brick_size:
-            if None == self.last_brick_direction or (0 == self.last_brick_direction  and h[i]<self.brick_open-self.brick_size):
+        if l[i]<self.brick_open-self.brick_size:
+            if None == self.last_brick_direction or (0 == self.last_brick_direction  and l[i]<self.brick_open-self.brick_size):
+                self.last_brick_direction = 0
                 self.bricks.append([len(self.bricks), t[i], self.brick_open, self.brick_open-self.brick_size, self.volume_in_brick,self.last_brick_direction])
                 self.brick_open = self.brick_open-self.brick_size
-                self.last_brick_direction = 0
                 self.brick_size = self.__get_last_atr(h[0:i:], l[0:i:], c[0:i:])
                 self.volume_in_brick = 0
-            elif 1 == self.last_brick_direction and h[i]<self.brick_open-self.brick_size*2:
+            elif 1 == self.last_brick_direction and l[i]<self.brick_open-self.brick_size*2:
+                self.last_brick_direction = 0
                 self.bricks.append([len(self.bricks), t[i], self.brick_open-self.brick_size, self.brick_open-self.brick_size*2, self.volume_in_brick,self.last_brick_direction])
                 self.brick_open = self.brick_open-self.brick_size*2
-                self.last_brick_direction = 0
                 self.brick_size = self.__get_last_atr(h[0:i:], l[0:i:], c[0:i:])
                 self.volume_in_brick = 0
-        elif l[i]>self.brick_open+self.brick_size:
-            if None == self.last_brick_direction or (1 == self.last_brick_direction and l[i]>self.brick_open+self.brick_size):
+        elif h[i]>self.brick_open+self.brick_size:
+            if None == self.last_brick_direction or (1 == self.last_brick_direction and h[i]>self.brick_open+self.brick_size):
+                self.last_brick_direction = 1
                 self.bricks.append([len(self.bricks), t[i], self.brick_open, self.brick_open+self.brick_size, self.volume_in_brick,self.last_brick_direction])
                 self.brick_open = self.brick_open+self.brick_size
-                self.last_brick_direction = 1
                 self.brick_size = self.__get_last_atr(h[0:i:], l[0:i:], c[0:i:])
                 self.volume_in_brick = 0
-            elif 0 == self.last_brick_direction and l[i]>self.brick_open+self.brick_size*2:
+            elif 0 == self.last_brick_direction and h[i]>self.brick_open+self.brick_size*2:
+                self.last_brick_direction = 1
                 self.bricks.append([len(self.bricks), t[i], self.brick_open+self.brick_size, self.brick_open+self.brick_size*2, self.volume_in_brick,self.last_brick_direction])
                 self.brick_open = self.brick_open+self.brick_size*2
-                self.last_brick_direction = 1
                 self.brick_size = self.__get_last_atr(h[0:i:], l[0:i:], c[0:i:])
                 self.volume_in_brick = 0
 
@@ -83,33 +88,32 @@ class Renko():
 
     def plot(self):
         np_bricks = np.array(self.bricks)
-        fig = make_subplots(rows=1, cols=1)
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
         fig.add_trace(
                 go.Candlestick(
                     x=np_bricks[:,1],
                     open=np_bricks[:,2],
                     high=np_bricks[:,2],
                     low=np_bricks[:,3],
-                    close=np_bricks[:,3],
-                    hovertext=np_bricks[:,1]
+                    close=np_bricks[:,3]
                 ),
-            1, 1
         )
         fig.add_trace(
                 go.Scatter(
                     x=np_bricks[:,1],
                     y=self.sma,
                     hoverinfo='skip'
-                ),
-            1, 1
+                )
         )
-        # fig.add_trace(
-        #         go.Scatter(
-        #             x=np_bricks[:,0],
-        #             y=self.obv
-        #         ),
-        #     2, 1
-        # )
+        fig.update_layout(xaxis_rangeslider_visible=False)
+        fig.add_trace(
+                go.Scatter(
+                    x=np_bricks[:,1],
+                    y=self.obv,
+                    hoverinfo='skip'
+                ),
+            secondary_y=True,
+        )
         fig.update_xaxes(type='category')
         fig.show()
 
@@ -127,7 +131,10 @@ class Renko():
                 buy_price = self.bricks[i][3]
                 write_log(self.bricks[i][1], 'long_op', ['brick_cl'], [buy_price])
             elif in_long_position and self.bricks[i][3] < self.sma[i]:
-                profit *= (self.bricks[i][3]/buy_price-0.0015)
+                # profit *= (self.bricks[i][3]/buy_price-0.0015)
+                fee=FEE*TRADE_QUANTITY*(2*LEVERAGE-1)*self.bricks[i][3]
+                interest_rate = INTEREST_RATE*TRADE_QUANTITY*(2*LEVERAGE-1)*self.bricks[i][3]
+                profit*=(1+((self.bricks[i][3]-buy_price)*TRADE_QUANTITY*LEVERAGE-fee-interest_rate)/(buy_price*TRADE_QUANTITY))
                 if buy_price<self.bricks[i][3]:
                     win_counter += 1
                     write_log(self.bricks[i][1], 'long_wn', ['brick_cl', 'profit'], [self.bricks[i][3], profit])
@@ -140,7 +147,10 @@ class Renko():
                 sell_price = self.bricks[i][3]
                 write_log(self.bricks[i][1], 'shrt_op', ['brick_cl'], [sell_price])
             elif in_short_position and self.bricks[i][3] > self.sma[i]:
-                profit *= (sell_price/self.bricks[i][3]-0.0015)
+                # profit *= (sell_price/self.bricks[i][3]-0.0015)
+                fee=FEE*TRADE_QUANTITY*(2*LEVERAGE-1)*sell_price
+                interest_rate = INTEREST_RATE*TRADE_QUANTITY*(2*LEVERAGE-1)*self.bricks[i][3]
+                profit*=(1+((sell_price-self.bricks[i][3])*TRADE_QUANTITY*LEVERAGE-fee-interest_rate)/(self.bricks[i][3]*TRADE_QUANTITY))
                 if sell_price>self.bricks[i][3]:
                     win_counter += 1
                     write_log(self.bricks[i][1], 'shrt_wn', ['brick_cl', 'profit'], [self.bricks[i][3], profit])
