@@ -7,7 +7,6 @@ from plotly.subplots import make_subplots
 from logger import write_log
 
 ATR_TIME_PERIOD = 14
-SMA_TIME_PERIOD = 9
 CANDLE_PERIOD_FOR_ATR = 1
 # for example: if candle interval is 1 min and you want to calculate ATR for 5 min candles -> CANDLE_PERIOD_FOR_ATR = 5
 
@@ -20,7 +19,7 @@ class Renko():
     def __init__(self, o, h, l, c, v, t) -> None:
         self.bricks = []
         # bricks: items: index, t, brick_open, brick_close, volume, last_brick_direction
-        self.sma = []
+        self.sma10 = []
         self.obv = []
         self.volume_in_brick = 0
         self.brick_open = o[0]
@@ -78,7 +77,7 @@ class Renko():
                 self.volume_in_brick = 0
 
     def __set_sma(self):
-        self.sma = talib.SMA(np.array(list(sub[3] for sub in self.bricks)), timeperiod=SMA_TIME_PERIOD)
+        self.sma10 = talib.SMA(np.array(list(sub[3] for sub in self.bricks)), timeperiod=10)
 
     def __set_obv(self):
         self.obv = talib.OBV(np.array(list(sub[3] for sub in self.bricks)), np.array(list(sub[4] for sub in self.bricks)))
@@ -107,7 +106,7 @@ class Renko():
         fig.add_trace(
                 go.Scatter(
                     x=np_bricks[:,1],
-                    y=self.sma,
+                    y=self.sma10,
                     hoverinfo='skip'
                 )
         )
@@ -124,11 +123,11 @@ class Renko():
         in_long_position = False
         in_short_position = False
         for i in range(ATR_TIME_PERIOD*CANDLE_PERIOD_FOR_ATR+1, len(self.bricks)):
-            if not in_long_position and not in_short_position and self.bricks[i][3]>self.sma[i] and self.obv[i]>self.obv[i-1] and self.bricks[i][5]==1:
+            if not in_long_position and not in_short_position and self.bricks[i][3]>self.sma10[i] and self.obv[i]>self.obv[i-1] and self.bricks[i][5]==1:
                 in_long_position = True
                 buy_price = self.bricks[i][3]
                 write_log(self.bricks[i][1], 'long_op', ['brick_cl'], [buy_price])
-            elif in_long_position and self.bricks[i][3] < self.sma[i]:
+            elif in_long_position and self.bricks[i][3] < self.sma10[i]:
                 # profit *= (self.bricks[i][3]/buy_price-0.0015)
                 fee=FEE*TRADE_QUANTITY*(2*LEVERAGE-1)*self.bricks[i][3]
                 interest_rate = INTEREST_RATE*TRADE_QUANTITY*(2*LEVERAGE-1)*self.bricks[i][3]
@@ -140,11 +139,11 @@ class Renko():
                     loss_counter += 1
                     write_log(self.bricks[i][1], 'long_ls', ['brick_cl', 'profit'], [self.bricks[i][3], profit])
                 in_long_position = False
-            if not in_long_position and not in_short_position and self.bricks[i][3]<self.sma[i] and self.obv[i]<self.obv[i-1] and self.bricks[i][5]==0:
+            if not in_long_position and not in_short_position and self.bricks[i][3]<self.sma10[i] and self.obv[i]<self.obv[i-1] and self.bricks[i][5]==0:
                 in_short_position = True
                 sell_price = self.bricks[i][3]
                 write_log(self.bricks[i][1], 'shrt_op', ['brick_cl'], [sell_price])
-            elif in_short_position and self.bricks[i][3] > self.sma[i]:
+            elif in_short_position and self.bricks[i][3] > self.sma10[i]:
                 # profit *= (sell_price/self.bricks[i][3]-0.0015)
                 fee=FEE*TRADE_QUANTITY*(2*LEVERAGE-1)*sell_price
                 interest_rate = INTEREST_RATE*TRADE_QUANTITY*(2*LEVERAGE-1)*self.bricks[i][3]
