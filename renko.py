@@ -16,7 +16,7 @@ LEVERAGE=3.0
 FEE = 0.0015
 INTEREST_RATE = 0.0004
 
-class Renko(): 
+class Renko():
     def __init__(self, o, h, l, c, v, t) -> None:
         self.bricks = []
         # bricks: items: index, t, brick_open, brick_close, volume, last_brick_direction
@@ -50,30 +50,30 @@ class Renko():
             if None == self.last_brick_direction or (0 == self.last_brick_direction  and l[i]<self.brick_open-self.brick_size):
                 self.last_brick_direction = 0
                 self.bricks.append([len(self.bricks), t[i], self.brick_open, self.brick_open-self.brick_size, self.volume_in_brick,self.last_brick_direction])
-                self.prev_brick_size=self.brick_size
                 self.brick_open = self.brick_open-self.brick_size
+                self.prev_brick_size=self.brick_size
                 self.brick_size = self.__get_last_atr(h[0:i:], l[0:i:], c[0:i:])
                 self.volume_in_brick = 0
-            elif 1 == self.last_brick_direction and l[i]<self.brick_open-self.brick_size*2:
+            elif 1 == self.last_brick_direction and l[i]<self.brick_open-self.prev_brick_size-self.brick_size:
                 self.last_brick_direction = 0
-                self.bricks.append([len(self.bricks), t[i], self.brick_open-self.prev_brick_size, self.brick_open-self.brick_size*2, self.volume_in_brick,self.last_brick_direction])
+                self.bricks.append([len(self.bricks), t[i], self.brick_open-self.prev_brick_size, self.brick_open-self.prev_brick_size-self.brick_size, self.volume_in_brick,self.last_brick_direction])
+                self.brick_open = self.brick_open-self.prev_brick_size-self.brick_size
                 self.prev_brick_size=self.brick_size
-                self.brick_open = self.brick_open-self.brick_size*2
                 self.brick_size = self.__get_last_atr(h[0:i:], l[0:i:], c[0:i:])
                 self.volume_in_brick = 0
         elif h[i]>self.brick_open+self.brick_size:
             if None == self.last_brick_direction or (1 == self.last_brick_direction and h[i]>self.brick_open+self.brick_size):
                 self.last_brick_direction = 1
                 self.bricks.append([len(self.bricks), t[i], self.brick_open, self.brick_open+self.brick_size, self.volume_in_brick,self.last_brick_direction])
-                self.prev_brick_size=self.brick_size
                 self.brick_open = self.brick_open+self.brick_size
+                self.prev_brick_size=self.brick_size
                 self.brick_size = self.__get_last_atr(h[0:i:], l[0:i:], c[0:i:])
                 self.volume_in_brick = 0
-            elif 0 == self.last_brick_direction and h[i]>self.brick_open+self.brick_size*2:
+            elif 0 == self.last_brick_direction and h[i]>self.brick_open+self.prev_brick_size+self.brick_size:
                 self.last_brick_direction = 1
-                self.bricks.append([len(self.bricks), t[i], self.brick_open+self.prev_brick_size, self.brick_open+self.brick_size*2, self.volume_in_brick,self.last_brick_direction])
+                self.bricks.append([len(self.bricks), t[i], self.brick_open+self.prev_brick_size, self.brick_open+self.prev_brick_size+self.brick_size, self.volume_in_brick,self.last_brick_direction])
+                self.brick_open = self.brick_open+self.prev_brick_size+self.brick_size
                 self.prev_brick_size=self.brick_size
-                self.brick_open = self.brick_open+self.brick_size*2
                 self.brick_size = self.__get_last_atr(h[0:i:], l[0:i:], c[0:i:])
                 self.volume_in_brick = 0
 
@@ -164,4 +164,6 @@ class Renko():
 
     def save_bricks(self):
         df=pd.DataFrame(self.bricks)
+        df.drop([0,1,4],axis=1,inplace=True)
+        df=df.round(2)
         df.to_csv('./bricks.csv')
