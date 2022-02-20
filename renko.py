@@ -7,7 +7,7 @@ from plotly.subplots import make_subplots
 from logger import write_log
 
 ATR_TIME_PERIOD = 14
-CANDLE_PERIOD_FOR_ATR = 1
+CANDLE_PERIOD_FOR_ATR = 30
 # for example: if candle interval is 1 min and you want to calculate ATR for 5 min candles -> CANDLE_PERIOD_FOR_ATR = 5
 
 TRADE_QUANTITY=1
@@ -25,10 +25,10 @@ class Renko():
         self.brick_open = o[0]
         self.last_brick_direction = None
         # self.last_brick_direction: 0->bearish, 1->bullish
-        self.brick_size = self.__get_last_atr(h[0:ATR_TIME_PERIOD*(CANDLE_PERIOD_FOR_ATR+1):], l[0:ATR_TIME_PERIOD*(CANDLE_PERIOD_FOR_ATR+1):], c[0:ATR_TIME_PERIOD*(CANDLE_PERIOD_FOR_ATR+1):])
+        self.brick_size = self.__get_last_atr(h[0:(ATR_TIME_PERIOD+1)*CANDLE_PERIOD_FOR_ATR], l[0:(ATR_TIME_PERIOD+1)*CANDLE_PERIOD_FOR_ATR], c[0:(ATR_TIME_PERIOD+1)*CANDLE_PERIOD_FOR_ATR])
         self.prev_brick_size=0
-        for i in range(ATR_TIME_PERIOD*(CANDLE_PERIOD_FOR_ATR+1), len(c)):
-            self.__append_brick(o, h, l, c, v, t, i)        
+        for i in range((ATR_TIME_PERIOD+1)*CANDLE_PERIOD_FOR_ATR, len(c)):
+            self.__append_brick(o, h, l, c, v, t, i)      
         self.__set_sma()
         self.__set_obv()
 
@@ -51,14 +51,14 @@ class Renko():
                 self.bricks.append([len(self.bricks), t[i], self.brick_open, self.brick_open-self.brick_size, self.volume_in_brick,self.last_brick_direction])
                 self.brick_open = self.brick_open-self.brick_size
                 self.prev_brick_size=self.brick_size
-                self.brick_size = self.__get_last_atr(h[0:i:], l[0:i:], c[0:i:])
+                self.brick_size = self.__get_last_atr(h[0:i], l[0:i], c[0:i])
                 self.volume_in_brick = 0
             elif 1 == self.last_brick_direction and l[i]<self.brick_open-self.prev_brick_size-self.brick_size:
                 self.last_brick_direction = 0
                 self.bricks.append([len(self.bricks), t[i], self.brick_open-self.prev_brick_size, self.brick_open-self.prev_brick_size-self.brick_size, self.volume_in_brick,self.last_brick_direction])
                 self.brick_open = self.brick_open-self.prev_brick_size-self.brick_size
                 self.prev_brick_size=self.brick_size
-                self.brick_size = self.__get_last_atr(h[0:i:], l[0:i:], c[0:i:])
+                self.brick_size = self.__get_last_atr(h[0:i], l[0:i], c[0:i])
                 self.volume_in_brick = 0
         elif h[i]>self.brick_open+self.brick_size:
             if None == self.last_brick_direction or (1 == self.last_brick_direction and h[i]>self.brick_open+self.brick_size):
@@ -66,14 +66,14 @@ class Renko():
                 self.bricks.append([len(self.bricks), t[i], self.brick_open, self.brick_open+self.brick_size, self.volume_in_brick,self.last_brick_direction])
                 self.brick_open = self.brick_open+self.brick_size
                 self.prev_brick_size=self.brick_size
-                self.brick_size = self.__get_last_atr(h[0:i:], l[0:i:], c[0:i:])
+                self.brick_size = self.__get_last_atr(h[0:i], l[0:i], c[0:i])
                 self.volume_in_brick = 0
             elif 0 == self.last_brick_direction and h[i]>self.brick_open+self.prev_brick_size+self.brick_size:
                 self.last_brick_direction = 1
                 self.bricks.append([len(self.bricks), t[i], self.brick_open+self.prev_brick_size, self.brick_open+self.prev_brick_size+self.brick_size, self.volume_in_brick,self.last_brick_direction])
                 self.brick_open = self.brick_open+self.prev_brick_size+self.brick_size
                 self.prev_brick_size=self.brick_size
-                self.brick_size = self.__get_last_atr(h[0:i:], l[0:i:], c[0:i:])
+                self.brick_size = self.__get_last_atr(h[0:i], l[0:i], c[0:i])
                 self.volume_in_brick = 0
 
     def __set_sma(self):
@@ -85,8 +85,8 @@ class Renko():
     def __get_last_atr(self, h, l, c):
         start_index = (len(h)%CANDLE_PERIOD_FOR_ATR)
         n_of_rows = (len(h)-start_index)//CANDLE_PERIOD_FOR_ATR
-        high = np.array(h[start_index::]).reshape((n_of_rows, CANDLE_PERIOD_FOR_ATR)).max(axis=1)
-        low = np.array(l[start_index::]).reshape((n_of_rows, CANDLE_PERIOD_FOR_ATR)).min(axis=1)
+        high = np.array(h[start_index:]).reshape((n_of_rows, CANDLE_PERIOD_FOR_ATR)).max(axis=1)
+        low = np.array(l[start_index:]).reshape((n_of_rows, CANDLE_PERIOD_FOR_ATR)).min(axis=1)
         close = c[start_index::CANDLE_PERIOD_FOR_ATR]
         atr = np.array(talib.ATR(high=high, low=low, close=close, timeperiod=ATR_TIME_PERIOD))
         return atr[-1]
