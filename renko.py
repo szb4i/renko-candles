@@ -7,7 +7,7 @@ from plotly.subplots import make_subplots
 from logger import write_log
 
 ATR_TIME_PERIOD = 14
-CANDLE_PERIOD_FOR_ATR = 30
+CANDLE_PERIOD_FOR_ATR = 60
 # for example: if candle interval is 1 min and you want to calculate ATR for 5 min candles -> CANDLE_PERIOD_FOR_ATR = 5
 
 TRADE_QUANTITY=1
@@ -122,7 +122,7 @@ class Renko():
         loss_counter = 0
         in_long_position = False
         in_short_position = False
-        for i in range(ATR_TIME_PERIOD*CANDLE_PERIOD_FOR_ATR+1, len(self.bricks)):
+        for i in range(10, len(self.bricks)):   #START FROM SMA (or any indicator) TIME_PERIOD
             if not in_long_position and not in_short_position and self.bricks[i][3]>self.sma10[i] and self.obv[i]>self.obv[i-1] and self.bricks[i][5]==1:
                 in_long_position = True
                 buy_price = self.bricks[i][3]
