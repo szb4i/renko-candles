@@ -7,20 +7,23 @@ from plotly.subplots import make_subplots
 from logger import write_log
 
 ATR_TIME_PERIOD = 14
-CANDLE_PERIOD_FOR_ATR = 60
+CANDLE_PERIOD_FOR_ATR = 45
 # for example: if candle interval is 1 min and you want to calculate ATR for 5 min candles -> CANDLE_PERIOD_FOR_ATR = 5
 
 TRADE_QUANTITY=1
 LEVERAGE=3.0
-FEE = 0.0015
+FEE = 0.002
 INTEREST_RATE = 0.0004
 
 class Renko():
     def __init__(self, o, h, l, c, v, t) -> None:
         self.bricks = []
         # bricks: items: index, t, brick_open, brick_close, volume, last_brick_direction
-        self.sma10 = []
+        self.sma50 = []
         self.obv = []
+        self.position_strength=0
+        self.profit = 1 
+        self.profits=[]
         self.volume_in_brick = 0
         self.brick_open = o[0]
         self.last_brick_direction = None
@@ -77,7 +80,7 @@ class Renko():
                 self.volume_in_brick = 0
 
     def __set_sma(self):
-        self.sma10 = talib.SMA(np.array(list(sub[3] for sub in self.bricks)), timeperiod=10)
+        self.sma50 = talib.EMA(np.array(list(sub[3] for sub in self.bricks)), timeperiod=99)
 
     def __set_obv(self):
         self.obv = talib.OBV(np.array(list(sub[3] for sub in self.bricks)), np.array(list(sub[4] for sub in self.bricks)))
@@ -94,19 +97,19 @@ class Renko():
     def plot(self):
         np_bricks = np.array(self.bricks)
         fig = make_subplots(specs=[[{"secondary_y": True}]])
-        fig.add_trace(
-                go.Candlestick(
-                    x=np_bricks[:,1],
-                    open=np_bricks[:,2],
-                    high=np_bricks[:,2],
-                    low=np_bricks[:,3],
-                    close=np_bricks[:,3]
-                ),
-        )
+        # fig.add_trace(
+        #         go.Candlestick(
+        #             x=np_bricks[:,1],
+        #             open=np_bricks[:,2],
+        #             high=np_bricks[:,2],
+        #             low=np_bricks[:,3],
+        #             close=np_bricks[:,3]
+        #         ),
+        # )
         fig.add_trace(
                 go.Scatter(
                     x=np_bricks[:,1],
-                    y=self.sma10,
+                    y=self.profits,
                     hoverinfo='skip'
                 )
         )
@@ -115,47 +118,81 @@ class Renko():
         fig.show()
 
     def test_strategy(self):
+        def __calculate_position_strength():
+            if in_long_position and self.bricks[i][5]==1:
+                self.position_strength+=1
+            elif in_long_position and self.bricks[i][5]==0:
+                self.position_strength-=1
+            elif in_short_position and self.bricks[i][5]==0:
+                self.position_strength+=1
+            elif in_short_position and self.bricks[i][5]==1:
+                self.position_strength-=1
+
+    
+        sl=0
+        tp=0
         buy_price = 0
         sell_price = 0
-        profit = 1
         win_counter = 0
         loss_counter = 0
         in_long_position = False
         in_short_position = False
         for i in range(10, len(self.bricks)):   #START FROM SMA (or any indicator) TIME_PERIOD
-            if not in_long_position and not in_short_position and self.bricks[i][3]>self.sma10[i] and self.obv[i]>self.obv[i-1] and self.bricks[i][5]==1:
+            __calculate_position_strength()
+        #STRATEGY
+            #OPEN LONG
+            if not in_long_position and not in_short_position and self.bricks[i][2]>self.sma50[i] and self.bricks[i][5]==1:
                 in_long_position = True
                 buy_price = self.bricks[i][3]
+                self.position_strength=0
+                self.position_strength_index=0
                 write_log(self.bricks[i][1], 'long_op', ['brick_cl'], [buy_price])
-            elif in_long_position and self.bricks[i][3] < self.sma10[i]:
-                # profit *= (self.bricks[i][3]/buy_price-0.0015)
-                fee=FEE*TRADE_QUANTITY*(2*LEVERAGE-1)*self.bricks[i][3]
-                interest_rate = INTEREST_RATE*TRADE_QUANTITY*(2*LEVERAGE-1)*self.bricks[i][3]
-                profit*=(1+((self.bricks[i][3]-buy_price)*TRADE_QUANTITY*LEVERAGE-fee-interest_rate)/(buy_price*TRADE_QUANTITY))
-                if buy_price<self.bricks[i][3]:
-                    win_counter += 1
-                    write_log(self.bricks[i][1], 'long_wn', ['brick_cl', 'profit'], [self.bricks[i][3], profit])
-                else:
-                    loss_counter += 1
-                    write_log(self.bricks[i][1], 'long_ls', ['brick_cl', 'profit'], [self.bricks[i][3], profit])
-                in_long_position = False
-            if not in_long_position and not in_short_position and self.bricks[i][3]<self.sma10[i] and self.obv[i]<self.obv[i-1] and self.bricks[i][5]==0:
+            #CLOSE LONG
+            elif in_long_position:
+                if self.position_strength==5:
+                    in_long_position = False
+                elif self.position_strength<=-3:
+                    in_long_position = False
+
+                if not in_long_position:
+                    sell_price=self.bricks[i][3]
+                    fee=FEE*TRADE_QUANTITY*LEVERAGE*sell_price
+                    self.profit*=1+((sell_price-buy_price)*TRADE_QUANTITY*LEVERAGE-fee)/(buy_price*TRADE_QUANTITY*LEVERAGE)
+                    self.profits.append(self.profit)
+                    if sell_price>buy_price:
+                        win_counter += 1
+                        write_log(self.bricks[i][1], 'long_wn', ['brick_cl', 'profit'], [sell_price, self.profit])
+                    else:
+                        loss_counter+=1
+                        write_log(self.bricks[i][1], 'long_ls', ['brick_cl', 'profit'], [sell_price, self.profit])
+            #OPEN SHORT
+            if not in_long_position and not in_short_position and self.bricks[i][2]<self.sma50[i] and self.bricks[i][5]==0:
                 in_short_position = True
                 sell_price = self.bricks[i][3]
+                self.position_strength=0
+                self.position_strength_index=0
                 write_log(self.bricks[i][1], 'shrt_op', ['brick_cl'], [sell_price])
-            elif in_short_position and self.bricks[i][3] > self.sma10[i]:
-                # profit *= (sell_price/self.bricks[i][3]-0.0015)
-                fee=FEE*TRADE_QUANTITY*(2*LEVERAGE-1)*sell_price
-                interest_rate = INTEREST_RATE*TRADE_QUANTITY*(2*LEVERAGE-1)*self.bricks[i][3]
-                profit*=(1+((sell_price-self.bricks[i][3])*TRADE_QUANTITY*LEVERAGE-fee-interest_rate)/(self.bricks[i][3]*TRADE_QUANTITY))
-                if sell_price>self.bricks[i][3]:
-                    win_counter += 1
-                    write_log(self.bricks[i][1], 'shrt_wn', ['brick_cl', 'profit'], [self.bricks[i][3], profit])
-                else:
-                    loss_counter += 1
-                    write_log(self.bricks[i][1], 'shrt_ls', ['brick_cl', 'profit'], [self.bricks[i][3], profit])
-                in_short_position = False
-        print('profit: ' + str(profit))
+            #CLOSE SHORT
+            elif in_short_position:
+                if self.position_strength==5:
+                    in_short_position = False
+                elif self.position_strength<=-3:
+                    in_short_position = False
+
+                if not in_short_position:
+                    buy_price=self.bricks[i][3]
+                    fee=FEE*TRADE_QUANTITY*LEVERAGE*buy_price
+                    self.profit*=1+((sell_price-buy_price)*TRADE_QUANTITY*LEVERAGE-fee)/(buy_price*TRADE_QUANTITY*LEVERAGE)
+                    self.profits.append(self.profit)
+                    if sell_price>buy_price:
+                        win_counter += 1
+                        write_log(self.bricks[i][1], 'shrt_wn', ['brick_cl', 'profit'], [buy_price, self.profit])
+                    else:
+                        loss_counter+=1
+                        write_log(self.bricks[i][1], 'shrt_ls', ['brick_cl', 'profit'], [buy_price, self.profit])
+
+
+        print('profit: ' + str(self.profit))
         print('win_counter: ' + str(win_counter))
         print('loss_counter: ' + str(loss_counter))
         if win_counter+loss_counter!=0: print("win rate {}".format(win_counter/(win_counter+loss_counter)))
