@@ -20,6 +20,7 @@ class Renko():
         self.bricks = []
         # bricks: items: index, t, brick_open, brick_close, volume, last_brick_direction
         self.sma50 = []
+        self.sma21 = []
         self.obv = []
         self.position_strength=0
         self.profit = 1 
@@ -80,7 +81,8 @@ class Renko():
                 self.volume_in_brick = 0
 
     def __set_sma(self):
-        self.sma50 = talib.EMA(np.array(list(sub[3] for sub in self.bricks)), timeperiod=99)
+        self.sma50 = talib.EMA(np.array(list(sub[3] for sub in self.bricks)), timeperiod=50)
+        self.sma21 = talib.EMA(np.array(list(sub[3] for sub in self.bricks)), timeperiod=21)
 
     def __set_obv(self):
         self.obv = talib.OBV(np.array(list(sub[3] for sub in self.bricks)), np.array(list(sub[4] for sub in self.bricks)))
@@ -141,7 +143,7 @@ class Renko():
             __calculate_position_strength()
         #STRATEGY
             #OPEN LONG
-            if not in_long_position and not in_short_position and self.bricks[i][2]>self.sma50[i] and self.bricks[i][5]==1:
+            if not in_long_position and not in_short_position and self.sma21[i]>self.sma50[i] and self.bricks[i][5]==1:
                 in_long_position = True
                 buy_price = self.bricks[i][3]
                 self.position_strength=0
@@ -149,15 +151,15 @@ class Renko():
                 write_log(self.bricks[i][1], 'long_op', ['brick_cl'], [buy_price])
             #CLOSE LONG
             elif in_long_position:
-                if self.position_strength==5:
+                if self.position_strength==2:
                     in_long_position = False
-                elif self.position_strength<=-3:
+                elif self.position_strength<=-5:
                     in_long_position = False
 
                 if not in_long_position:
                     sell_price=self.bricks[i][3]
                     fee=FEE*TRADE_QUANTITY*LEVERAGE*sell_price
-                    self.profit*=1+((sell_price-buy_price)*TRADE_QUANTITY*LEVERAGE-fee)/(buy_price*TRADE_QUANTITY*LEVERAGE)
+                    self.profit*=1+((sell_price-buy_price)*TRADE_QUANTITY*LEVERAGE-fee)/(buy_price*TRADE_QUANTITY)
                     self.profits.append(self.profit)
                     if sell_price>buy_price:
                         win_counter += 1
@@ -166,7 +168,7 @@ class Renko():
                         loss_counter+=1
                         write_log(self.bricks[i][1], 'long_ls', ['brick_cl', 'profit'], [sell_price, self.profit])
             #OPEN SHORT
-            if not in_long_position and not in_short_position and self.bricks[i][2]<self.sma50[i] and self.bricks[i][5]==0:
+            if not in_long_position and not in_short_position and self.sma21[i]<self.sma50[i] and self.bricks[i][5]==0:
                 in_short_position = True
                 sell_price = self.bricks[i][3]
                 self.position_strength=0
@@ -174,15 +176,15 @@ class Renko():
                 write_log(self.bricks[i][1], 'shrt_op', ['brick_cl'], [sell_price])
             #CLOSE SHORT
             elif in_short_position:
-                if self.position_strength==5:
+                if self.position_strength==2:
                     in_short_position = False
-                elif self.position_strength<=-3:
+                elif self.position_strength<=-5:
                     in_short_position = False
 
                 if not in_short_position:
                     buy_price=self.bricks[i][3]
                     fee=FEE*TRADE_QUANTITY*LEVERAGE*buy_price
-                    self.profit*=1+((sell_price-buy_price)*TRADE_QUANTITY*LEVERAGE-fee)/(buy_price*TRADE_QUANTITY*LEVERAGE)
+                    self.profit*=1+((sell_price-buy_price)*TRADE_QUANTITY*LEVERAGE-fee)/(buy_price*TRADE_QUANTITY)
                     self.profits.append(self.profit)
                     if sell_price>buy_price:
                         win_counter += 1
