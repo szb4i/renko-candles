@@ -1,4 +1,5 @@
 import math
+from turtle import position
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -23,6 +24,7 @@ class Renko():
         self.sma21 = []
         self.obv = []
         self.position_strength=0
+        self.position_strength_index=0
         self.profit = 1 
         self.profits=[]
         self.volume_in_brick = 0
@@ -82,7 +84,7 @@ class Renko():
 
     def __set_sma(self):
         self.sma50 = talib.EMA(np.array(list(sub[3] for sub in self.bricks)), timeperiod=50)
-        self.sma21 = talib.EMA(np.array(list(sub[3] for sub in self.bricks)), timeperiod=21)
+        self.sma21 = talib.EMA(np.array(list(sub[3] for sub in self.bricks)), timeperiod=99)
 
     def __set_obv(self):
         self.obv = talib.OBV(np.array(list(sub[3] for sub in self.bricks)), np.array(list(sub[4] for sub in self.bricks)))
@@ -143,7 +145,7 @@ class Renko():
             __calculate_position_strength()
         #STRATEGY
             #OPEN LONG
-            if not in_long_position and not in_short_position and self.sma21[i]>self.sma50[i] and self.bricks[i][5]==1:
+            if not in_long_position and not in_short_position and self.bricks[i][2]>self.sma21[i] and self.bricks[i][5]==1 and self.bricks[i-1][5]==1:
                 in_long_position = True
                 buy_price = self.bricks[i][3]
                 self.position_strength=0
@@ -151,9 +153,9 @@ class Renko():
                 write_log(self.bricks[i][1], 'long_op', ['brick_cl'], [buy_price])
             #CLOSE LONG
             elif in_long_position:
-                if self.position_strength==2:
+                if self.position_strength>=1:
                     in_long_position = False
-                elif self.position_strength<=-5:
+                elif self.position_strength<=-1:
                     in_long_position = False
 
                 if not in_long_position:
@@ -168,7 +170,7 @@ class Renko():
                         loss_counter+=1
                         write_log(self.bricks[i][1], 'long_ls', ['brick_cl', 'profit'], [sell_price, self.profit])
             #OPEN SHORT
-            if not in_long_position and not in_short_position and self.sma21[i]<self.sma50[i] and self.bricks[i][5]==0:
+            if not in_long_position and not in_short_position and self.bricks[i][2]<self.sma21[i] and self.bricks[i][5]==0 and self.bricks[i-1][5]==0:
                 in_short_position = True
                 sell_price = self.bricks[i][3]
                 self.position_strength=0
@@ -176,9 +178,9 @@ class Renko():
                 write_log(self.bricks[i][1], 'shrt_op', ['brick_cl'], [sell_price])
             #CLOSE SHORT
             elif in_short_position:
-                if self.position_strength==2:
+                if self.position_strength>=1:
                     in_short_position = False
-                elif self.position_strength<=-5:
+                elif self.position_strength<=-1:
                     in_short_position = False
 
                 if not in_short_position:
