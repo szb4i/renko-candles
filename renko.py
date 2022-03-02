@@ -13,7 +13,7 @@ CANDLE_PERIOD_FOR_ATR = 45
 
 TRADE_QUANTITY=1
 LEVERAGE=3.0
-FEE = 0.001
+FEE = 0.00027
 INTEREST_RATE = 0.0004
 
 class Renko():
@@ -21,7 +21,7 @@ class Renko():
         self.bricks = []
         # bricks: items: index, t, brick_open, brick_close, volume, last_brick_direction
         self.sma50 = []
-        self.sma21 = []
+        self.ema99 = []
         self.obv = []
         self.position_strength=0
         self.position_strength_index=0
@@ -84,7 +84,7 @@ class Renko():
 
     def __set_sma(self):
         self.sma50 = talib.EMA(np.array(list(sub[3] for sub in self.bricks)), timeperiod=50)
-        self.sma21 = talib.EMA(np.array(list(sub[3] for sub in self.bricks)), timeperiod=99)
+        self.ema99 = talib.EMA(np.array(list(sub[3] for sub in self.bricks)), timeperiod=99)
 
     def __set_obv(self):
         self.obv = talib.OBV(np.array(list(sub[3] for sub in self.bricks)), np.array(list(sub[4] for sub in self.bricks)))
@@ -101,19 +101,19 @@ class Renko():
     def plot(self):
         np_bricks = np.array(self.bricks)
         fig = make_subplots(specs=[[{"secondary_y": True}]])
-        # fig.add_trace(
-        #         go.Candlestick(
-        #             x=np_bricks[:,1],
-        #             open=np_bricks[:,2],
-        #             high=np_bricks[:,2],
-        #             low=np_bricks[:,3],
-        #             close=np_bricks[:,3]
-        #         ),
-        # )
+        fig.add_trace(
+                go.Candlestick(
+                    x=np_bricks[:,1],
+                    open=np_bricks[:,2],
+                    high=np_bricks[:,2],
+                    low=np_bricks[:,3],
+                    close=np_bricks[:,3]
+                ),
+        )
         fig.add_trace(
                 go.Scatter(
                     x=np_bricks[:,1],
-                    y=self.profits,
+                    y=self.ema99,
                     hoverinfo='skip'
                 )
         )
@@ -145,7 +145,7 @@ class Renko():
             __calculate_position_strength()
         #STRATEGY
             #OPEN LONG
-            if not in_long_position and not in_short_position and self.bricks[i][2]>self.sma21[i] and self.bricks[i][5]==1 and self.bricks[i-1][5]==1:
+            if not in_long_position and not in_short_position and self.bricks[i][2]>self.ema99[i] and self.bricks[i][5]==1 and self.bricks[i-1][5]==1:
                 in_long_position = True
                 buy_price = self.bricks[i][3]
                 self.position_strength=0
@@ -170,7 +170,7 @@ class Renko():
                         loss_counter+=1
                         write_log(self.bricks[i][1], 'long_ls', ['brick_cl', 'profit'], [sell_price, self.profit])
             #OPEN SHORT
-            if not in_long_position and not in_short_position and self.bricks[i][2]<self.sma21[i] and self.bricks[i][5]==0 and self.bricks[i-1][5]==0:
+            if not in_long_position and not in_short_position and self.bricks[i][2]<self.ema99[i] and self.bricks[i][5]==0 and self.bricks[i-1][5]==0:
                 in_short_position = True
                 sell_price = self.bricks[i][3]
                 self.position_strength=0
