@@ -19,11 +19,9 @@ class Renko():
     def __init__(self, o, h, l, c, v, t) -> None:
         self.bricks = []
         # bricks: items: index, t, brick_open, brick_close, volume, last_brick_direction
-        self.sma50 = []
         self.ema99 = []
         self.obv = []
         self.position_strength=0
-        self.position_strength_index=0
         self.profit = 1 
         self.profits=[]
         self.volume_in_brick = 0
@@ -34,7 +32,7 @@ class Renko():
         self.prev_brick_size=0
         for i in range((ATR_TIME_PERIOD+1)*CANDLE_PERIOD_FOR_ATR, len(c)):
             self.__append_brick(o, h, l, c, v, t, i)      
-        self.__set_sma()
+        self.__set_ema()
         self.__set_obv()
 
     def append_brick(self, o, h, l, c, v, t, i):
@@ -44,7 +42,7 @@ class Renko():
         self.__append_brick(o, h, l, c, v, t, i)
         if bricks_len == len(self.bricks):
             return False
-        self.__set_sma()
+        self.__set_ema()
         self.__set_obv()
         return True
 
@@ -81,8 +79,7 @@ class Renko():
                 self.brick_size = self.__get_last_atr(h[0:i], l[0:i], c[0:i])
                 self.volume_in_brick = 0
 
-    def __set_sma(self):
-        self.sma50 = talib.EMA(np.array(list(sub[3] for sub in self.bricks)), timeperiod=50)
+    def __set_ema(self):
         self.ema99 = talib.EMA(np.array(list(sub[3] for sub in self.bricks)), timeperiod=99)
 
     def __set_obv(self):
@@ -148,7 +145,6 @@ class Renko():
                 in_long_position = True
                 buy_price = self.bricks[i][3]
                 self.position_strength=0
-                self.position_strength_index=0
                 write_log(self.bricks[i][1], 'long_op', ['brick_cl'], [buy_price])
             #CLOSE LONG
             elif in_long_position:
@@ -173,7 +169,6 @@ class Renko():
                 in_short_position = True
                 sell_price = self.bricks[i][3]
                 self.position_strength=0
-                self.position_strength_index=0
                 write_log(self.bricks[i][1], 'shrt_op', ['brick_cl'], [sell_price])
             #CLOSE SHORT
             elif in_short_position:
