@@ -9,7 +9,7 @@ import credentials
 
 client=Client(credentials.getBinanceKey(), credentials.getBinanceSecretKey())
 
-TIME_INTERVAL = '1 year ago UTC'
+TIME_INTERVAL = '2 day ago UTC'
 CURRENCY_PAIR = 'BTCBUSD'
 CANDLE_INTERVAL = Client.KLINE_INTERVAL_1MINUTE
 
