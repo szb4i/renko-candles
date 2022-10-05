@@ -9,7 +9,7 @@ import credentials
 
 client=Client(credentials.getBinanceKey(), credentials.getBinanceSecretKey())
 
-TIME_INTERVAL = '2 week ago UTC'
+TIME_INTERVAL = '1 year ago UTC'
 CURRENCY_PAIR = 'BTCBUSD'
 CANDLE_INTERVAL = Client.KLINE_INTERVAL_1MINUTE
 
@@ -54,6 +54,7 @@ def getData():
         print('./historical_data.csv saved')
     df = pd.read_table(
         './historical_data.csv',
+        low_memory=False,
         header=None,
         sep=',',
         names=[DataColumns.OPEN_TIME.value, DataColumns.OPEN.value, DataColumns.HIGH.value, DataColumns.LOW.value, DataColumns.CLOSE.value, DataColumns.VOLUME.value, DataColumns.CLOSE_TIME.value, DataColumns.OPEN_TIME_READABLE.value, DataColumns.CLOSE_TIME_READABLE.value]
