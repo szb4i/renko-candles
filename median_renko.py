@@ -8,8 +8,8 @@ ATR_TIME_PERIOD = 14
 CANDLE_PERIOD_FOR_ATR = 5
 # for example: if candle interval is 1 min and you want to calculate ATR for 5 min candles -> CANDLE_PERIOD_FOR_ATR = 5
 
-GUPPY_START = 30
-GUPPY_END = 60
+GUPPY_START = 100
+GUPPY_END = 100
 GUPPY_STEP = 5
 
 class MedianRenko():
@@ -38,10 +38,18 @@ class MedianRenko():
         return atr[-1]
 
     def __append_brick(self, o, h, l, c, v, t, i):
-        if l[i] < self.brick_low:
-            self.brick_low = l[i]
-        if h[i] > self.brick_high:
-            self.brick_high = h[i]
+        if c[i] < self.brick_low:
+            if not c[i] < self.brick_down_level:
+                self.brick_low = c[i]
+            else:
+                self.brick_low=self.brick_down_level
+                self.brick_high=self.brick_open
+        if c[i] > self.brick_high:
+            if not c[i] > self.brick_up_level:
+                self.brick_high = c[i]
+            else:
+                self.brick_high=self.brick_up_level
+                self.brick_low=self.brick_open
         if 0 == len(self.bricks):
             if h[i] > self.brick_up_level:
                 self.bricks.append([len(self.bricks), t[i], self.brick_open, self.brick_up_level, 1, self.brick_low, self.brick_high])
@@ -56,14 +64,14 @@ class MedianRenko():
                 self.brick_down_level = self.brick_open - self.brick_size
                 self.__on_brick_down_level_hit(o, h, l, c, v, t, i)
         else:
-            if h[i] > self.brick_up_level:
+            if c[i] > self.brick_up_level:
                 self.__on_brick_up_level_hit(o, h, l, c, v, t, i)
-            elif l[i] < self.brick_down_level:
+            elif c[i] < self.brick_down_level:
                 self.__on_brick_down_level_hit(o, h, l, c, v, t, i)
 
     def __on_brick_up_level_hit(self, o, h, l, c, v, t, i):
         # while: if multiple bricks are finished in a single candle
-        while h[i] > self.brick_up_level:
+        while c[i] > self.brick_up_level:
             self.bricks.append([len(self.bricks), t[i], self.brick_open, self.brick_up_level, 1, self.brick_low, self.brick_high])
             self.brick_open = self.brick_open + self.brick_size/2
             self.brick_up_level = self.brick_open + self.brick_size
@@ -76,7 +84,7 @@ class MedianRenko():
 
     def __on_brick_down_level_hit(self, o, h, l, c, v, t, i):
         # while: if multiple bricks are finished in a single candle
-        while l[i] < self.brick_down_level:
+        while c[i] < self.brick_down_level:
             self.bricks.append([len(self.bricks), t[i], self.brick_open, self.brick_down_level, 0, self.brick_low, self.brick_high])
             self.brick_open = self.brick_open - self.brick_size/2
             self.brick_up_level = self.brick_open + self.brick_size
