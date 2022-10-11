@@ -122,28 +122,51 @@ class MedianRenko():
 
     def test_strategy(self):
         in_long = False
+        in_short = False
         tp = None
         sl = None
         for i in range(50, len(self.bricks)):
-            if False == in_long and self.__is_guppy_ok(i) and self.__is_brick_pattern_ok(i):
+            if not in_long and not in_short  and self.__is_guppy_long_ok(i) and self.__is_brick_pattern_long_ok(i):
                 low = float(self.np_bricks[i, 5]) if float(self.np_bricks[i, 5]) < float(self.np_bricks[i-1, 5]) else float(self.np_bricks[i-1, 5])
                 sl = low
                 tp = 2*float(self.np_bricks[i, 3]) - low
                 in_long = True
-                write_log(self.bricks[i][1], 'open', [], [])
-            elif True == in_long and float(self.np_bricks[i, 5]) < sl:
+                write_log(self.bricks[i][1], 'long_open', [], [])
+            elif in_long and float(self.np_bricks[i, 5]) < sl:
                 in_long = False
-                write_log(self.bricks[i][1], 'lost', [], [])
-            elif True == in_long and float(self.np_bricks[i, 6]) > tp:
+                write_log(self.bricks[i][1], 'long_lost', [], [])
+            elif in_long and float(self.np_bricks[i, 6]) > tp:
                 in_long = False
-                write_log(self.bricks[i][1], 'won', [], [])
+                write_log(self.bricks[i][1], 'long_won', [], [])
+            
+            if not in_short and not in_long  and self.__is_guppy_short_ok(i) and self.__is_brick_pattern_short_ok(i):
+                high = float(self.np_bricks[i, 6]) if float(self.np_bricks[i, 6]) > float(self.np_bricks[i-1, 6]) else float(self.np_bricks[i-1, 6])
+                sl = high
+                tp = 2*float(self.np_bricks[i, 3]) - high
+                in_short = True
+                write_log(self.bricks[i][1], 'short_open', [], [])
+            elif in_short and float(self.np_bricks[i, 6]) > sl:
+                in_short = False
+                write_log(self.bricks[i][1], 'short_lost', [], [])
+            elif in_short and float(self.np_bricks[i, 5]) < tp:
+                in_short = False
+                write_log(self.bricks[i][1], 'short_won', [], [])
 
 
-    def __is_guppy_ok(self, i: int):
+    def __is_guppy_long_ok(self, i: int):
         for row in range(0, np.shape(self.np_guppy)[0]-1):
             if self.np_guppy[row, i] < self.np_guppy[row+1, i]:
                 return False
         return True
 
-    def __is_brick_pattern_ok(self, i: int):
+    def __is_guppy_short_ok(self, i: int):
+        for row in range(0, np.shape(self.np_guppy)[0]-1):
+            if self.np_guppy[row, i] > self.np_guppy[row+1, i]:
+                return False
+        return True
+
+    def __is_brick_pattern_long_ok(self, i: int):
         return 0 == int(self.np_bricks[i-1, 4]) and 1 == int(self.np_bricks[i, 4]) and self.np_bricks[i, 1] != self.np_bricks[i+1, 1]
+
+    def __is_brick_pattern_short_ok(self, i: int):
+        return 1 == int(self.np_bricks[i-1, 4]) and 0 == int(self.np_bricks[i, 4]) and self.np_bricks[i, 1] != self.np_bricks[i+1, 1]
