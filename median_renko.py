@@ -1,8 +1,12 @@
+from time import time
+from typing import TypedDict
 import numpy as np
 import plotly.graph_objects as go
 import talib
 from plotly.subplots import make_subplots
 from logger import write_log
+import pandas as pd
+from datetime import datetime
 
 ATR_TIME_PERIOD = 14
 CANDLE_PERIOD_FOR_ATR = 5
@@ -11,6 +15,10 @@ CANDLE_PERIOD_FOR_ATR = 5
 GUPPY_START = 30
 GUPPY_END = 60
 GUPPY_STEP = 5
+
+class IAction(TypedDict):
+    time: float
+    event: str
 
 class MedianRenko():
     def __init__(self, o, h, l, c, v, t, t_ms) -> None:
@@ -22,8 +30,9 @@ class MedianRenko():
         self.brick_down_level: float = self.brick_open - self.brick_size
         self.brick_low: float = 1000000.
         self.brick_high: float = 0.
+        self.actions: list[IAction] = []
         for i in range((ATR_TIME_PERIOD+1)*CANDLE_PERIOD_FOR_ATR, len(c)):
-            self.__append_brick(o, h, l, c, v, t, i)      
+            self.__append_brick(o, h, l, c, v, t, t_ms, i)      
         self.np_bricks = np.array(self.bricks)
         self.np_guppy = self.__get_np_guppy()
 
@@ -37,34 +46,34 @@ class MedianRenko():
         atr = np.array(talib.ATR(high=high, low=low, close=close, timeperiod=ATR_TIME_PERIOD))
         return atr[-1]
 
-    def __append_brick(self, o, h, l, c, v, t, i):
+    def __append_brick(self, o, h, l, c, v, t, t_ms, i):
         if l[i] < self.brick_low:
             self.brick_low = l[i]
         if h[i] > self.brick_high:
             self.brick_high = h[i]
         if 0 == len(self.bricks):
             if h[i] > self.brick_up_level:
-                self.bricks.append([len(self.bricks), t[i], self.brick_open, self.brick_up_level, 1, self.brick_low, self.brick_high])
+                self.bricks.append([len(self.bricks), t[i], self.brick_open, self.brick_up_level, 1, self.brick_low, self.brick_high, t_ms[i]])
                 self.brick_open = self.brick_open + self.brick_size/2
                 self.brick_up_level = self.brick_open + self.brick_size
                 self.brick_down_level = self.brick_open - self.brick_size
-                self.__on_brick_up_level_hit(o, h, l, c, v, t, i)
+                self.__on_brick_up_level_hit(o, h, l, c, v, t, t_ms, i)
             elif l[i] < self.brick_down_level:
-                self.bricks.append([len(self.bricks), t[i], self.brick_open, self.brick_down_level, 0, self.brick_low, self.brick_high])
+                self.bricks.append([len(self.bricks), t[i], self.brick_open, self.brick_down_level, 0, self.brick_low, self.brick_high, t_ms[i]])
                 self.brick_open = self.brick_open - self.brick_size/2
                 self.brick_up_level = self.brick_open + self.brick_size
                 self.brick_down_level = self.brick_open - self.brick_size
-                self.__on_brick_down_level_hit(o, h, l, c, v, t, i)
+                self.__on_brick_down_level_hit(o, h, l, c, v, t, t_ms, i)
         else:
             if h[i] > self.brick_up_level:
-                self.__on_brick_up_level_hit(o, h, l, c, v, t, i)
+                self.__on_brick_up_level_hit(o, h, l, c, v, t, t_ms, i)
             elif l[i] < self.brick_down_level:
-                self.__on_brick_down_level_hit(o, h, l, c, v, t, i)
+                self.__on_brick_down_level_hit(o, h, l, c, v, t, t_ms, i)
 
-    def __on_brick_up_level_hit(self, o, h, l, c, v, t, i):
+    def __on_brick_up_level_hit(self, o, h, l, c, v, t, t_ms, i):
         # while: if multiple bricks are finished in a single candle
         while h[i] > self.brick_up_level:
-            self.bricks.append([len(self.bricks), t[i], self.brick_open, self.brick_up_level, 1, self.brick_low, self.brick_high])
+            self.bricks.append([len(self.bricks), t[i], self.brick_open, self.brick_up_level, 1, self.brick_low, self.brick_high, t_ms[i]])
             self.brick_open = self.brick_open + self.brick_size/2
             self.brick_up_level = self.brick_open + self.brick_size
             self.brick_down_level = self.brick_open - self.brick_size
@@ -74,10 +83,10 @@ class MedianRenko():
         self.brick_low = 1000000.
         self.brick_high = 0.
 
-    def __on_brick_down_level_hit(self, o, h, l, c, v, t, i):
+    def __on_brick_down_level_hit(self, o, h, l, c, v, t, t_ms, i):
         # while: if multiple bricks are finished in a single candle
         while l[i] < self.brick_down_level:
-            self.bricks.append([len(self.bricks), t[i], self.brick_open, self.brick_down_level, 0, self.brick_low, self.brick_high])
+            self.bricks.append([len(self.bricks), t[i], self.brick_open, self.brick_down_level, 0, self.brick_low, self.brick_high, t_ms[i]])
             self.brick_open = self.brick_open - self.brick_size/2
             self.brick_up_level = self.brick_open + self.brick_size
             self.brick_down_level = self.brick_open - self.brick_size
@@ -132,12 +141,15 @@ class MedianRenko():
                 tp = 2*float(self.np_bricks[i, 3]) - low
                 in_long = True
                 write_log(self.bricks[i][1], 'long_open', [], [])
+                self.actions.append({ 'time': self.bricks[i][7], 'event': 'long_open' })
             elif in_long and float(self.np_bricks[i, 5]) < sl:
                 in_long = False
                 write_log(self.bricks[i][1], 'long_lost', [], [])
+                self.actions.append({ 'time': self.bricks[i][7], 'event': 'long_lost' })
             elif in_long and float(self.np_bricks[i, 6]) > tp:
                 in_long = False
                 write_log(self.bricks[i][1], 'long_won', [], [])
+                self.actions.append({ 'time': self.bricks[i][7], 'event': 'long_won' })
             
             if not in_short and not in_long  and self.__is_guppy_short_ok(i) and self.__is_brick_pattern_short_ok(i):
                 high = float(self.np_bricks[i, 6]) if float(self.np_bricks[i, 6]) > float(self.np_bricks[i-1, 6]) else float(self.np_bricks[i-1, 6])
@@ -145,12 +157,18 @@ class MedianRenko():
                 tp = 2*float(self.np_bricks[i, 3]) - high
                 in_short = True
                 write_log(self.bricks[i][1], 'short_open', [], [])
+                self.actions.append({ 'time': self.bricks[i][7], 'event': 'short_open' })
             elif in_short and float(self.np_bricks[i, 6]) > sl:
                 in_short = False
                 write_log(self.bricks[i][1], 'short_lost', [], [])
+                self.actions.append({ 'time': self.bricks[i][7], 'event': 'short_lost' })
             elif in_short and float(self.np_bricks[i, 5]) < tp:
                 in_short = False
                 write_log(self.bricks[i][1], 'short_won', [], [])
+                self.actions.append({ 'time': self.bricks[i][7], 'event': 'short_won' })
+        df = pd.DataFrame.from_dict(self.actions)
+        df['time'] = df.apply(lambda row: datetime.fromtimestamp(float(row['time'])/1000), axis=1)
+        df.to_excel('test.xlsx', index=False)
 
 
     def __is_guppy_long_ok(self, i: int):
