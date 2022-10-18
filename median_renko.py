@@ -8,8 +8,8 @@ from logger import write_log
 import pandas as pd
 from datetime import datetime
 
-ATR_TIME_PERIOD = 14
-CANDLE_PERIOD_FOR_ATR = 5
+ATR_TIME_PERIOD = 5
+CANDLE_PERIOD_FOR_ATR = 1
 # for example: if candle interval is 1 min and you want to calculate ATR for 5 min candles -> CANDLE_PERIOD_FOR_ATR = 5
 
 GUPPY_START = 30
@@ -175,11 +175,17 @@ class MedianRenko():
         for row in range(0, np.shape(self.np_guppy)[0]-1):
             if self.np_guppy[row, i] < self.np_guppy[row+1, i]:
                 return False
+        for row in range(0, np.shape(self.np_guppy)[0]-1):
+            if self.np_guppy[row, i] - self.np_guppy[row, i-1] < 0:
+                return False
         return True
 
     def __is_guppy_short_ok(self, i: int):
         for row in range(0, np.shape(self.np_guppy)[0]-1):
             if self.np_guppy[row, i] > self.np_guppy[row+1, i]:
+                return False
+        for row in range(0, np.shape(self.np_guppy)[0]-1):
+            if self.np_guppy[row, i] - self.np_guppy[row, i-1] > 0:
                 return False
         return True
 
