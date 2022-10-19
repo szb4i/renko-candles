@@ -1,5 +1,5 @@
 from time import time
-from typing import TypedDict
+# from typing import TypedDict
 import numpy as np
 import plotly.graph_objects as go
 import talib
@@ -16,9 +16,9 @@ GUPPY_START = 30
 GUPPY_END = 60
 GUPPY_STEP = 5
 
-class IAction(TypedDict):
-    time: float
-    event: str
+# class IAction(TypedDict):
+#     time: float
+#     event: str
 
 class MedianRenko():
     def __init__(self, o, h, l, c, v, t, t_ms) -> None:
@@ -30,7 +30,19 @@ class MedianRenko():
         self.brick_down_level: float = self.brick_open - self.brick_size
         self.brick_low: float = 1000000.
         self.brick_high: float = 0.
-        self.actions: list[IAction] = []
+        self.actions = []
+        self.actions_long_open_x = []
+        self.actions_long_open_y = []
+        self.actions_long_won_x = []
+        self.actions_long_won_y = []
+        self.actions_long_lost_x = []
+        self.actions_long_lost_y = []
+        self.actions_short_open_x = []
+        self.actions_short_open_y = []
+        self.actions_short_won_x = []
+        self.actions_short_won_y = []
+        self.actions_short_lost_x = []
+        self.actions_short_lost_y = []
         for i in range((ATR_TIME_PERIOD+1)*CANDLE_PERIOD_FOR_ATR, len(c)):
             self.__append_brick(o, h, l, c, v, t, t_ms, i)      
         self.np_bricks = np.array(self.bricks)
@@ -123,7 +135,55 @@ class MedianRenko():
                         hoverinfo='skip'
                     )
             )
-        # fig.update_layout(xaxis_rangeslider_visible=False)
+        fig.add_trace(
+            go.Scatter(
+                x=self.actions_long_open_x,
+                y=self.actions_long_open_y,
+                mode="markers",
+                marker=dict(color="yellow", size=8, symbol="triangle-up"),
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=self.actions_long_won_x,
+                y=self.actions_long_won_y,
+                mode="markers",
+                marker=dict(color="green", size=8, symbol="triangle-up"),
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=self.actions_long_lost_x,
+                y=self.actions_long_lost_y,
+                mode="markers",
+                marker=dict(color="red", size=8, symbol="triangle-up"),
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=self.actions_short_open_x,
+                y=self.actions_short_open_y,
+                mode="markers",
+                marker=dict(color="yellow", size=8, symbol="triangle-down"),
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=self.actions_short_won_x,
+                y=self.actions_short_won_y,
+                mode="markers",
+                marker=dict(color="green", size=8, symbol="triangle-down"),
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=self.actions_short_lost_x,
+                y=self.actions_short_lost_y,
+                mode="markers",
+                marker=dict(color="red", size=8, symbol="triangle-down"),
+            )
+        )
+        fig.update_layout(xaxis_rangeslider_visible=False)
         fig.update_layout(hovermode="closest")
         fig.update_xaxes(type='category')
         fig.update_yaxes(fixedrange=False)
@@ -141,15 +201,21 @@ class MedianRenko():
                 tp = 2*float(self.np_bricks[i, 3]) - low
                 in_long = True
                 write_log(self.bricks[i][1], 'long_open', [], [])
-                self.actions.append({ 'time': self.bricks[i][7], 'event': 'long_open' })
+                self.actions.append({ 'time': self.bricks[i][7], 'event': 'long_open', 'index': i })
+                self.actions_long_open_x.append(i)
+                self.actions_long_open_y.append(self.bricks[i][6] + 5)
             elif in_long and float(self.np_bricks[i, 5]) < sl:
                 in_long = False
                 write_log(self.bricks[i][1], 'long_lost', [], [])
-                self.actions.append({ 'time': self.bricks[i][7], 'event': 'long_lost' })
+                self.actions.append({ 'time': self.bricks[i][7], 'event': 'long_lost', 'index': i })
+                self.actions_long_lost_x.append(i)
+                self.actions_long_lost_y.append(self.bricks[i][5] - 5)
             elif in_long and float(self.np_bricks[i, 6]) > tp:
                 in_long = False
                 write_log(self.bricks[i][1], 'long_won', [], [])
-                self.actions.append({ 'time': self.bricks[i][7], 'event': 'long_won' })
+                self.actions.append({ 'time': self.bricks[i][7], 'event': 'long_won', 'index': i })
+                self.actions_long_won_x.append(i)
+                self.actions_long_won_y.append(self.bricks[i][6] + 5)
             
             if not in_short and not in_long  and self.__is_guppy_short_ok(i) and self.__is_brick_pattern_short_ok(i):
                 high = float(self.np_bricks[i, 6]) if float(self.np_bricks[i, 6]) > float(self.np_bricks[i-1, 6]) else float(self.np_bricks[i-1, 6])
@@ -157,15 +223,21 @@ class MedianRenko():
                 tp = 2*float(self.np_bricks[i, 3]) - high
                 in_short = True
                 write_log(self.bricks[i][1], 'short_open', [], [])
-                self.actions.append({ 'time': self.bricks[i][7], 'event': 'short_open' })
+                self.actions.append({ 'time': self.bricks[i][7], 'event': 'short_open', 'index': i })
+                self.actions_short_open_x.append(i)
+                self.actions_short_open_y.append(self.bricks[i][5] - 5)
             elif in_short and float(self.np_bricks[i, 6]) > sl:
                 in_short = False
                 write_log(self.bricks[i][1], 'short_lost', [], [])
-                self.actions.append({ 'time': self.bricks[i][7], 'event': 'short_lost' })
+                self.actions.append({ 'time': self.bricks[i][7], 'event': 'short_lost', 'index': i })
+                self.actions_short_lost_x.append(i)
+                self.actions_short_lost_y.append(self.bricks[i][6] + 5)
             elif in_short and float(self.np_bricks[i, 5]) < tp:
                 in_short = False
                 write_log(self.bricks[i][1], 'short_won', [], [])
-                self.actions.append({ 'time': self.bricks[i][7], 'event': 'short_won' })
+                self.actions.append({ 'time': self.bricks[i][7], 'event': 'short_won', 'index': i })
+                self.actions_short_won_x.append(i)
+                self.actions_short_won_y.append(self.bricks[i][5] - 5)
         df = pd.DataFrame.from_dict(self.actions)
         df['time'] = df.apply(lambda row: datetime.fromtimestamp(float(row['time'])/1000), axis=1)
         df.to_excel('test.xlsx', index=False)
