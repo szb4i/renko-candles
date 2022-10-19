@@ -140,7 +140,7 @@ class MedianRenko():
                 x=self.actions_long_open_x,
                 y=self.actions_long_open_y,
                 mode="markers",
-                marker=dict(color="yellow", size=8, symbol="triangle-up"),
+                marker=dict(color="yellow", size=12, symbol="triangle-up"),
             )
         )
         fig.add_trace(
@@ -148,7 +148,7 @@ class MedianRenko():
                 x=self.actions_long_won_x,
                 y=self.actions_long_won_y,
                 mode="markers",
-                marker=dict(color="green", size=8, symbol="triangle-up"),
+                marker=dict(color="green", size=12, symbol="triangle-up"),
             )
         )
         fig.add_trace(
@@ -156,7 +156,7 @@ class MedianRenko():
                 x=self.actions_long_lost_x,
                 y=self.actions_long_lost_y,
                 mode="markers",
-                marker=dict(color="red", size=8, symbol="triangle-up"),
+                marker=dict(color="red", size=12, symbol="triangle-up"),
             )
         )
         fig.add_trace(
@@ -164,7 +164,7 @@ class MedianRenko():
                 x=self.actions_short_open_x,
                 y=self.actions_short_open_y,
                 mode="markers",
-                marker=dict(color="yellow", size=8, symbol="triangle-down"),
+                marker=dict(color="yellow", size=12, symbol="triangle-down"),
             )
         )
         fig.add_trace(
@@ -172,7 +172,7 @@ class MedianRenko():
                 x=self.actions_short_won_x,
                 y=self.actions_short_won_y,
                 mode="markers",
-                marker=dict(color="green", size=8, symbol="triangle-down"),
+                marker=dict(color="green", size=12, symbol="triangle-down"),
             )
         )
         fig.add_trace(
@@ -180,7 +180,7 @@ class MedianRenko():
                 x=self.actions_short_lost_x,
                 y=self.actions_short_lost_y,
                 mode="markers",
-                marker=dict(color="red", size=8, symbol="triangle-down"),
+                marker=dict(color="red", size=12, symbol="triangle-down"),
             )
         )
         fig.update_layout(xaxis_rangeslider_visible=False)
